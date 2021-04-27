@@ -1,5 +1,5 @@
 echo off
-title Office Download Script
+title Office Activation Script
 cls
-echo Downloading Office
+echo Running Activation Script
 KMS_VL_ALL_AIO
