@@ -1,6 +1,6 @@
 <!-- : Begin batch script
 @setlocal DisableDelayedExpansion
-@set uivr=v41
+@set uivr=v45
 @echo off
 :: ### Configuration Options ###
 
@@ -14,7 +14,7 @@ set ActOffice=1
 :: change to 0 to turn OFF auto conversion for Office C2R Retail to Volume
 set AutoR2V=1
 
-:: change to 0 to revert Windows 10 KMS38 to normal KMS
+:: change to 0 to revert Windows 10/11 KMS38 to normal KMS
 set SkipKMS38=1
 
 :: ### Unattended Options ###
@@ -50,12 +50,16 @@ set KMS_HWID=0x3A1C049600B60076
 :: change KMS TCP port
 set KMS_Port=1688
 
-:: Notice for advanced users on Windows 64-bit (x64):
+:: change to 1 to use VBScript instead wmic.exe to access WMI
+:: this option is automatically enabled for Windows 11 build 22483 and later
+set WMI_VBS=0
+
+:: Notice for advanced users on Windows 64-bit (x64 / ARM64):
 :: when you bundle KMS_VL_ALL script(s) inside self-extracting program or run it from another command script
 :: if the exe pack or the caller script is running as 32-bit (x86) process
-:: KMS_VL_ALL script(s) will close then relaunch itself using 64-bit (x64) cmd.exe
+:: KMS_VL_ALL script(s) will close then relaunch itself using 64-bit (x64 / ARM64) cmd.exe
 :: in that case, be advised not to proceed your pack or caller script depending on KMS_VL_ALL script(s) closure
-:: instead, make sure the exe pack or the other caller script are already 64-bit (x64) process
+:: instead, make sure the exe pack or the other caller script are already 64-bit (x64 / ARM64) process
 
 :: ###################################################################
 :: # NORMALLY THERE IS NO NEED TO CHANGE ANYTHING BELOW THIS COMMENT #
@@ -64,6 +68,8 @@ set KMS_Port=1688
 set KMS_Emulation=1
 set Unattend=0
 set _uIP=0.0.0.0
+
+set "_Null=1>nul 2>nul"
 
 set "_cmdf=%~f0"
 if exist "%SystemRoot%\Sysnative\cmd.exe" (
@@ -120,9 +126,9 @@ set "Path=%SysPath%;%SystemRoot%;%SysPath%\Wbem;%SystemRoot%\System32\WindowsPow
 set "_err===== ERROR ===="
 set "_psc=powershell -nop -c"
 set "_buf={$W=$Host.UI.RawUI.WindowSize;$B=$Host.UI.RawUI.BufferSize;$W.Height=31;$B.Height=300;$Host.UI.RawUI.WindowSize=$W;$Host.UI.RawUI.BufferSize=$B;}"
-set "o_x64=0ca83cdd18845d77e0775f299a111a0591d86883"
-set "o_x86=08266ee7d7aac833e04ca037a5435f0438c6b973"
-set "o_arm=928aa4e96c49ca3500c714d68ade270e3b4135f5"
+set "o_x64=684103f5c312ae956e66a02b965d9aad59710745"
+set "o_x86=da8f931c7f3bc6643e20063e075cd8fa044b53ae"
+set "o_arm=1139ae6243934ca621e6d4ed2e2f34cc130ef88a"
 set "_bit=64"
 set "_wow=1"
 if /i "%PROCESSOR_ARCHITECTURE%"=="amd64" set "xBit=x64"&set "xOS=x64"&set "_orig=%o_x64%"
@@ -140,6 +146,7 @@ if %pwsh32% EQU 1 set _dllPath=%SystemRoot%\Sysnative
 set _dllNum=1
 if %xOS%==x64 set _dllNum=2
 if %xOS%==A64 set _dllNum=3
+set preparedcolor=0
 
 1>nul 2>nul reg query HKU\S-1-5-19 && (
   goto :Passed
@@ -164,6 +171,8 @@ set _PSarg=%_PSarg:'=''%
 :Passed
 set "_batf=%~f0"
 set "_batp=%_batf:'=''%"
+set "_Local=%LocalAppData%"
+set "_utemp=%TEMP%"
 set "_temp=%SystemRoot%\Temp"
 set "_log=%~dpn0"
 set "_work=%~dp0"
@@ -172,7 +181,10 @@ set _UNC=0
 if "%_work:~0,2%"=="\\" set _UNC=1
 for /f "skip=2 tokens=2*" %%a in ('reg query "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders" /v Desktop') do call set "_dsk=%%b"
 if exist "%PUBLIC%\Desktop\desktop.ini" set "_dsk=%PUBLIC%\Desktop"
-set preparedcolor=0
+set "_mO21a=Detected Office 2021 C2R Retail is activated"
+set "_mO19a=Detected Office 2019 C2R Retail is activated"
+set "_mO16a=Detected Office 2016 C2R Retail is activated"
+set "_mO15a=Detected Office 2013 C2R Retail is activated"
 set "_mO21c=Detected Office 2021 C2R Retail could not be converted to Volume"
 set "_mO19c=Detected Office 2019 C2R Retail could not be converted to Volume"
 set "_mO16c=Detected Office 2016 C2R Retail could not be converted to Volume"
@@ -182,13 +194,63 @@ set "_mO14m=Detected Office 2010 MSI Retail is not supported by KMS_VL_ALL"
 set "_mO15m=Detected Office 2013 MSI Retail is not supported by KMS_VL_ALL"
 set "_mO16m=Detected Office 2016 MSI Retail is not supported by KMS_VL_ALL"
 set "_mOuwp=Detected Office 365/2016 UWP is not supported by KMS_VL_ALL"
+set DO16Ids=ProPlus,ProjectPro,VisioPro,Standard,ProjectStd,VisioStd,Access,SkypeforBusiness,Excel,Outlook,PowerPoint,Publisher,Word
 set LV16Ids=Mondo,ProPlus,ProjectPro,VisioPro,Standard,ProjectStd,VisioStd,Access,SkypeforBusiness,OneNote,Excel,Outlook,PowerPoint,Publisher,Word
 set LR16Ids=%LV16Ids%,Professional,HomeBusiness,HomeStudent,O365Business,O365SmallBusPrem,O365HomePrem,O365EduCloud
 set "ESUEditions=Enterprise,EnterpriseE,EnterpriseN,Professional,ProfessionalE,ProfessionalN,Ultimate,UltimateE,UltimateN"
 if exist "%SystemRoot%\Servicing\Packages\Microsoft-Windows-Server*Edition~*.mum" (
 set "ESUEditions=ServerDatacenter,ServerDatacenterCore,ServerDatacenterV,ServerDatacenterVCore,ServerStandard,ServerStandardCore,ServerStandardV,ServerStandardVCore,ServerEnterprise,ServerEnterpriseCore,ServerEnterpriseV,ServerEnterpriseVCore"
 )
+for /f "tokens=6 delims=[]. " %%G in ('ver') do set winbuild=%%G
+set "_csg=cscript.exe //NoLogo //Job:WmiMulti "%~nx0?.wsf""
+set "_csq=cscript.exe //NoLogo //Job:WmiQuery "%~nx0?.wsf""
+set "_csm=cscript.exe //NoLogo //Job:WmiMethod "%~nx0?.wsf""
+set "_csp=cscript.exe //NoLogo //Job:WmiPKey "%~nx0?.wsf""
+set "_csx=cscript.exe //NoLogo //Job:XPDT "%~nx0?.wsf""
+set "_csd=cscript.exe //NoLogo //Job:MPS "%~nx0?.wsf""
+if %winbuild% GEQ 22483 set WMI_VBS=1
+if %WMI_VBS% EQU 0 (
+set "_zz1=wmic path"
+set "_zz2=where"
+set "_zz3=get"
+set "_zz4=/value"
+set "_zz5=("
+set "_zz6=)"
+set "_zz7="wmic path"
+set "_zz8=/value""
+) else (
+set "_zz1=%_csq%"
+set "_zz2="
+set "_zz3="
+set "_zz4="
+set "_zz5=""
+set "_zz6=""
+set "_zz7=%_csq%"
+set "_zz8="
+)
+set _WSH=1
+reg query "HKCU\SOFTWARE\Microsoft\Windows Script Host\Settings" /v Enabled 2>nul | find /i "0x0" 1>nul && (set _WSH=0)
+reg query "HKLM\SOFTWARE\Microsoft\Windows Script Host\Settings" /v Enabled 2>nul | find /i "0x0" 1>nul && (set _WSH=0)
+if %_WSH% EQU 0 if %WMI_VBS% NEQ 0 goto :E_VBS
+set _NCS=1
+if %winbuild% LSS 10586 set _NCS=0
+if %winbuild% GEQ 10586 reg query "HKCU\Console" /v ForceV2 2>nul | find /i "0x0" 1>nul && (set _NCS=0)
 setlocal EnableDelayedExpansion
+set "_oem=!_work!"
+copy /y nul "!_work!\#.rw" 1>nul 2>nul && (
+if exist "!_work!\#.rw" del /f /q "!_work!\#.rw"
+) || (
+set "_oem=!_dsk!"
+set "_log=!_dsk!\%~n0"
+if %Logger% EQU 1 set _run="!_dsk!\%~n0_Silent.log"
+)
+pushd "!_work!"
+set "_suf="
+set "_qr=%_zz7% Win32_OperatingSystem %_zz3% LocalDateTime %_zz8%"
+if %_Debug% EQU 1 if exist "!_log!_Debug.log" (
+for /f "tokens=2 delims==." %%# in ('%_qr%') do set "_date=%%#"
+set "_suf=_!_date:~8,6!"
+)
 
 if %_Debug% EQU 0 (
   set "_Nul1=1>nul"
@@ -204,12 +266,6 @@ if %_Debug% EQU 0 (
   set "_Nul6="
   set "_Nul3="
   set "_Pause="
-  copy /y nul "!_work!\#.rw" 1>nul 2>nul && (if exist "!_work!\#.rw" del /f /q "!_work!\#.rw") || (set "_log=!_dsk!\%~n0")
-  if exist "!_log!_Debug.log" (
-  call set "_suf="
-  for /f "tokens=2 delims==." %%# in ('wmic os get localdatetime /value') do set "_date=%%#"
-  set "_suf=_!_date:~8,6!"
-  )
   if %Silent% EQU 0 (
   echo.
   echo Running in Debug Mode...
@@ -250,7 +306,6 @@ set "line1============================================================="
 set "line2=************************************************************"
 set "line3=____________________________________________________________"
 set "line4=__________________________________________________"
-for /f "tokens=6 delims=[]. " %%G in ('ver') do set winbuild=%%G
 set SSppHook=0
 for /f %%A in ('dir /b /ad %SysPath%\spp\tokens\skus') do (
   if %winbuild% GEQ 9200 if exist "%SysPath%\spp\tokens\skus\%%A\*GVLK*.xrm-ms" set SSppHook=1
@@ -270,6 +325,7 @@ set ESU_EDT=0
 if %ESU_KMS% EQU 1 for %%A in (%ESUEditions%) do (
   if exist "%SysPath%\spp\tokens\skus\Security-SPP-Component-SKU-%%A\*.xrm-ms" set ESU_EDT=1
 )
+:: if %ESU_EDT% EQU 1 set SSppHook=1
 set ESU_ADD=0
 
 if %winbuild% GEQ 9200 (
@@ -294,13 +350,13 @@ if %Unattend% EQU 1 if not defined fAUR set fAUR=0&set External=0
 if not defined fAUR if not defined rAUR goto :MainMenu
 if defined rAUR (set _verb=1&cls&call :RemoveHook&goto :cCache)
 set Unattend=1
-set AUR=0
+set _ReAR=0
+set _AUR=0
 if exist %_Hook% dir /b /al %_Hook% %_Nul3% || (
-  reg query "%IFEO%\%SppVer%" /v KMS_Emulation %_Nul3% && set AUR=1
-  reg query "%IFEO%\osppsvc.exe" /v KMS_Emulation %_Nul3% && set AUR=1
+  reg query "%IFEO%\%SppVer%" /v VerifierFlags %_Nul3% && (set _AUR=1) || (reg query "%IFEO%\osppsvc.exe" /v VerifierFlags %_Nul3% && set _AUR=1)
 )
-if %fAUR% EQU 1 (if %AUR% EQU 0 (set AUR=1&set _verb=1&set _rtr=DoActivate&cls&goto :InstallHook) else (set _verb=0&set _rtr=DoActivate&cls&goto :InstallHook))
-if %External% EQU 0 (set AUR=0&cls&goto :DoActivate)
+if %fAUR% EQU 1 (set _ReAR=1&if %_AUR% EQU 0 (set _AUR=1&set _verb=1&set _rtr=DoActivate&cls&goto :InstallHook) else (set _verb=0&set _rtr=DoActivate&cls&goto :InstallHook))
+if %External% EQU 0 (set _AUR=0&cls&goto :DoActivate)
 cls&goto :DoActivate
 
 :MainMenu
@@ -310,12 +366,12 @@ color 07
 set "_title=KMS_VL_ALL_AIO %uivr%"
 title %_title%
 set _dMode=Manual
-set AUR=0
+set _ReAR=0
+set _AUR=0
 if exist %_Hook% dir /b /al %_Hook% %_Nul3% || (
-  reg query "%IFEO%\%SppVer%" /v KMS_Emulation %_Nul3% && (set AUR=1&set "_dMode=Auto Renewal")
-  reg query "%IFEO%\osppsvc.exe" /v KMS_Emulation %_Nul3% && (set AUR=1&set "_dMode=Auto Renewal")
+  reg query "%IFEO%\%SppVer%" /v VerifierFlags %_Nul3% && (set _AUR=1&set "_dMode=Auto Renewal") || (reg query "%IFEO%\osppsvc.exe" /v VerifierFlags %_Nul3% && (set _AUR=1&set "_dMode=Auto Renewal"))
 )
-if %AUR% EQU 0 (set "_dHook=Not Installed") else (set "_dHook=Installed")
+if %_AUR% EQU 0 (set "_dHook=Not Installed") else (set "_dHook=Installed")
 if %ActWindows% EQU 0 (set _dAwin=No) else (set _dAwin=Yes)
 if %ActOffice% EQU 0 (set _dAoff=No) else (set _dAoff=Yes)
 if %AutoR2V% EQU 0 (set _dArtv=No) else (set _dArtv=Yes)
@@ -324,21 +380,21 @@ if %_Debug% EQU 0 (set _dDbg=No) else (set _dDbg=Yes)
 set _el=
 set _quit=
 if %preparedcolor%==0 call :colorprep
-if %winbuild% LSS 10586 (
+if %_NCS% EQU 0 (
 pushd %_temp%
 if not exist "'" (<nul >"'" set /p "=.")
 )
 echo.
 echo           %line3%
 echo.
-if %AUR% EQU 1 (           
+if %_AUR% EQU 1 (           
 rem echo                [1] Activate [%_dMode% Mode]
 call :Cfgbg %_cWht% "               [1] Activate " %_cGrn% "[%_dMode% Mode]"
 ) else (
 call :Cfgbg %_cWht% "               [1] Activate " %_cBlu% "[%_dMode% Mode]"
 )
 echo.
-if %AUR% EQU 1 (           
+if %_AUR% EQU 1 (           
 call :Cfgbg %_cWht% "               [2] Install Activation Auto-Renewal " %_cGrn% "[%_dHook%]"
 ) else (
 echo                [2] Install Activation Auto-Renewal
@@ -370,22 +426,22 @@ call :Cfgbg %_cWht% "               [7] Convert Office C2R-R2V  " %_cYel% "[%_dA
 )
 if %winbuild% GEQ 10240 (
 if %_dWXKMS%==Yes (
-echo                [X] Skip Windows 10 KMS38   [%_dWXKMS%]
+echo                [X] Skip Windows KMS38      [%_dWXKMS%]
 ) else (
-call :Cfgbg %_cWht% "               [X] Skip Windows 10 KMS38   " %_cYel% "[%_dWXKMS%]"
+call :Cfgbg %_cWht% "               [X] Skip Windows KMS38      " %_cYel% "[%_dWXKMS%]"
 ))
 echo                %line4%
 echo.
 echo                    Miscellaneous:
 echo.
 echo                [8] Check Activation Status [vbs]
-echo                [9] Check Activation Status [wmic]
+echo                [9] Check Activation Status [wmi]
 echo                [S] Create $OEM$ Folder
 echo                [R] Read Me
 echo                [E] Activate [External Mode]
 echo           %line3%
 echo.
-if %winbuild% LSS 10586 (
+if %_NCS% EQU 0 (
 popd
 )
 choice /c 1234567890ERSX /n /m ">           Choose a menu option, or press 0 to Exit: "
@@ -402,14 +458,14 @@ if %_el%==6 (if %ActOffice% EQU 0 (set ActOffice=1) else (set ActWindows=1&set A
 if %_el%==5 (if %ActWindows% EQU 0 (set ActWindows=1) else (set ActWindows=0&set ActOffice=1))&goto :MainMenu
 if %_el%==4 (if %_Debug% EQU 0 (set _Debug=1) else (set _Debug=0))&goto :MainMenu
 if %_el%==3 (if %_dDbg%==No (set _verb=1&cls&call :RemoveHook&goto :cCache) else (set _verb=1&cls&goto :RemoveHook))
-if %_el%==2 (if %AUR% EQU 0 (set AUR=1&set _verb=1&set _rtr=DoActivate&cls&goto :InstallHook) else (set _verb=0&set _rtr=DoActivate&cls&goto :InstallHook))
+if %_el%==2 (set _ReAR=1&if %_AUR% EQU 0 (set _AUR=1&set _verb=1&set _rtr=DoActivate&cls&goto :InstallHook) else (set _verb=0&set _rtr=DoActivate&cls&goto :InstallHook))
 if %_el%==1 (cls&goto :DoActivate)
 goto :MainMenu
 
 :colorprep
 set preparedcolor=1
 
-if %winbuild% GEQ 10586 (
+if %_NCS% EQU 1 (
 for /f "tokens=1,2 delims=#" %%A in ('"prompt #$H#$E# & echo on & for %%B in (1) do rem"') do set _EC=%%B
 
 set "_cBlu="44;97m""
@@ -430,7 +486,7 @@ set "_cWht="07""
 exit /b
 
 :Cfgbg
-if %winbuild% GEQ 10586 (
+if %_NCS% EQU 1 (
 echo %_EC%[%~1%~2%_EC%[%~3%~4%_EC%[0m
 exit /b
 )
@@ -480,20 +536,20 @@ if %ActWindows% EQU 0 set "_para=!_para! /o"
 if %ActOffice% EQU 0 set "_para=!_para! /w"
 if %SkipKMS38% EQU 0 set "_para=!_para! /x"
 if %External% EQU 1 set "_para=!_para! /e %KMS_IP%"
-if %External% EQU 0 if %AUR% EQU 0 set "_para=!_para! /m"
-if %External% EQU 0 if %AUR% EQU 1 set "_para=!_para! /a"
+if %External% EQU 0 if %_AUR% EQU 0 set "_para=!_para! /m"
+if %External% EQU 0 if %_AUR% EQU 1 set "_para=!_para! /a"
 goto :DoDebug
 )
 if %External% EQU 1 (
 if "%KMS_IP%"=="%_uIP%" set External=0
 )
 if %External% EQU 1 (
-set AUR=1
+set _AUR=1
 )
 if %External% EQU 0 (
 set KMS_IP=%_uIP%
 )
-if %AUR% EQU 0 (
+if %_AUR% EQU 0 (
 set KMS_RenewalInterval=43200
 set KMS_ActivationInterval=43200
 ) else (
@@ -503,7 +559,7 @@ set KMS_ActivationInterval=%_uAI%
 if %External% EQU 1 (
 color 8F&set "mode=External ^(%KMS_IP%^)"
 ) else (
-if %AUR% EQU 0 (color 1F&set "mode=Manual") else (color 07&set "mode=Auto Renewal")
+if %_AUR% EQU 0 (color 1F&set "mode=Manual") else (color 07&set "mode=Auto Renewal")
 )
 if %Unattend% EQU 0 (
 if %_Debug% EQU 0 (title %_title%) else (set "_title=KMS_VL_ALL_AIO %uivr% : %mode%"&title KMS_VL_ALL_AIO %uivr% : %mode%)
@@ -523,14 +579,14 @@ echo.
 echo Activation Mode: %mode%
 call :StopService sppsvc
 if %OsppHook% NEQ 0 call :StopService osppsvc
-if %External% EQU 0 if %AUR% EQU 0 (set _verb=0&set _rtr=ReturnHook&goto :InstallHook)
+if %External% EQU 0 if %_ReAR% EQU 0 (set _verb=0&set _rtr=ReturnHook&goto :InstallHook)
 
 :ReturnHook
-if %External% EQU 0 if %AUR% EQU 1 (
+if %External% EQU 0 if %_AUR% EQU 1 (
 call :UpdateIFEOEntry %SppVer%
 call :UpdateIFEOEntry osppsvc.exe
 )
-if %External% EQU 1 if %AUR% EQU 1 (
+if %External% EQU 1 if %_AUR% EQU 1 (
 call :UpdateOSPPEntry osppsvc.exe
 )
 
@@ -552,7 +608,8 @@ SET "EditionID=%EditionPKG:~0,-7%"
 FOR /F "TOKENS=3 DELIMS=: " %%A IN ('DISM /English /Online /Get-CurrentEdition %_Nul6% ^| FIND /I "Current Edition :"') DO SET "EditionID=%%A"
 )
 net start sppsvc /y %_Nul3%
-FOR /F "TOKENS=2 DELIMS==" %%A IN ('"WMIC PATH SoftwareLicensingProduct WHERE (ApplicationID='%_wApp%' %adoff% AND PartialProductKey is not NULL) GET LicenseFamily /VALUE" %_Nul6%') DO SET "EditionWMI=%%A"
+set "_qr=%_zz7% SoftwareLicensingProduct %_zz2% %_zz5%ApplicationID='%_wApp%' %adoff% AND PartialProductKey is not NULL%_zz6% %_zz3% LicenseFamily %_zz8%"
+FOR /F "TOKENS=2 DELIMS==" %%A IN ('%_qr% %_Nul6%') DO SET "EditionWMI=%%A"
 IF "%EditionWMI%"=="" (
 IF %winbuild% GEQ 17063 FOR /F "SKIP=2 TOKENS=2*" %%A IN ('REG QUERY "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion" /v EditionId') DO SET "EditionID=%%B"
 IF %winbuild% LSS 14393 (
@@ -590,7 +647,7 @@ if not defined _C15R reg query HKLM\SOFTWARE\Microsoft\Office\15.0\ClickToRun\pr
 )
 set "_C14R="
 if %_wow%==0 (reg query HKLM\SOFTWARE\Microsoft\Office\14.0\CVH /f Click2run /k %_Nul3% && set "_C14R=1") else (reg query HKLM\SOFTWARE\Wow6432Node\Microsoft\Office\14.0\CVH /f Click2run /k %_Nul3% && set "_C14R=1")
-for %%A in (14,15,16,19) do call :officeLoc %%A
+for %%A in (14,15,16,19,21) do call :officeLoc %%A
 if %_O14MSI% EQU 1 set "_C14R="
 
 set S_OK=1
@@ -605,18 +662,18 @@ if exist "!_temp!\slmgr.vbs" del /f /q "!_temp!\slmgr.vbs"
 call :StopService sppsvc
 if %OsppHook% NEQ 0 call :StopService osppsvc
 
-if %AUR% EQU 0 call :RemoveHook
+if %_AUR% EQU 0 call :RemoveHook
 
 sc start sppsvc trigger=timer;sessionid=0 %_Nul3%
-set External=0
-set KMS_IP=%_uIP%
 if %_verb% EQU 1 (
 echo.&echo %line3%&echo.
-if "%_rtr%"=="DoActivate" (
+if %External% EQU 0 if "%_rtr%"=="DoActivate" (
 echo.
 echo Make sure to exclude this file in the Antivirus protection.
 echo %SystemRoot%\System32\SppExtComObjHook.dll)
 )
+set External=0
+set KMS_IP=%_uIP%
 if %uManual% EQU 1 timeout 5
 if %uAutoRenewal% EQU 1 timeout 5
 if %Unattend% NEQ 0 goto :TheEnd
@@ -633,8 +690,13 @@ set WinPerm=0
 set WinVL=0
 set Off1ce=0
 set RunR2V=0
+set aC2R21=0
+set aC2R19=0
+set aC2R16=0
+set aC2R15=0
 if %winbuild% GEQ 9200 if %ActOffice% NEQ 0 call :sppoff
-wmic path %spp% where (Description like '%%KMSCLIENT%%') get Name /value %_Nul2% | findstr /i Windows %_Nul1% && (set WinVL=1)
+set "_qr=%_zz1% %spp% %_zz2% %_zz5%Description like '%%KMSCLIENT%%' %_zz6% %_zz3% Name %_zz4%"
+%_qr% %_Nul2% | findstr /i Windows %_Nul1% && (set WinVL=1)
 if %WinVL% EQU 0 (
 if %ActWindows% EQU 0 (
   echo.&echo Windows activation is OFF...
@@ -649,75 +711,122 @@ if %ActWindows% EQU 0 (
   )
 )
 if %WinVL% EQU 0 if %Off1ce% EQU 0 exit /b
-if %AUR% EQU 0 (
-reg delete "HKLM\%SPPk%\%_wApp%" /f %_Nul3%
-reg delete "HKLM\%SPPk%\%_oApp%" /f %_Nul3%
-reg delete "HKU\S-1-5-20\%SPPk%\%_wApp%" /f %_Nul3%
-reg delete "HKU\S-1-5-20\%SPPk%\%_oApp%" /f %_Nul3%
+if %_AUR% EQU 0 (
+reg delete "HKLM\%SPPk%\%_wApp%" /f %_Null%
+rem reg delete "HKLM\%SPPk%\%_oApp%" /f %_Null%
+reg delete "HKU\S-1-5-20\%SPPk%\%_wApp%" /f %_Null%
+reg delete "HKU\S-1-5-20\%SPPk%\%_oApp%" /f %_Null%
 )
 set _gvlk=0
-if %winbuild% GEQ 10240 wmic path %spp% where (ApplicationID='%_wApp%' and Description like '%%KMSCLIENT%%' and PartialProductKey is not NULL) get Name /value %_Nul2% | findstr /i Windows %_Nul1% && (set _gvlk=1)
+set "_qr=%_zz1% %spp% %_zz2% %_zz5%ApplicationID='%_wApp%' and Description like '%%KMSCLIENT%%' and PartialProductKey is not NULL%_zz6% %_zz3% Name %_zz4%"
+if %winbuild% GEQ 10240 %_qr% %_Nul2% | findstr /i Windows %_Nul1% && (set _gvlk=1)
 set gpr=0
-if %winbuild% GEQ 10240 if %SkipKMS38% NEQ 0 if %_gvlk% EQU 1 for /f "tokens=2 delims==" %%A in ('"wmic path %spp% where (ApplicationID='%_wApp%' and Description like '%%KMSCLIENT%%' and PartialProductKey is not NULL) get GracePeriodRemaining /VALUE" %_Nul6%') do set "gpr=%%A"
+set "_qr=%_zz7% %spp% %_zz2% %_zz5%ApplicationID='%_wApp%' and Description like '%%KMSCLIENT%%' and PartialProductKey is not NULL%_zz6% %_zz3% GracePeriodRemaining %_zz8%"
+if %winbuild% GEQ 10240 if %SkipKMS38% NEQ 0 if %_gvlk% EQU 1 for /f "tokens=2 delims==" %%A in ('%_qr% %_Nul6%') do set "gpr=%%A"
+set "_qr=%_zz1% %spp% %_zz2% "ApplicationID='%_wApp%' and Description like '%%KMSCLIENT%%' and PartialProductKey is not NULL" %_zz3% LicenseFamily %_zz4%"
 if %gpr% NEQ 0 if %gpr% GTR 259200 (
 set W1nd0ws=0
-wmic path %spp% where "ApplicationID='%_wApp%' and Description like '%%KMSCLIENT%%' and PartialProductKey is not NULL" get LicenseFamily /value %_Nul2% | findstr /i EnterpriseG %_Nul1% && (call set W1nd0ws=1)
+%_qr% %_Nul2% | findstr /i EnterpriseG %_Nul1% && (call set W1nd0ws=1)
 )
-for /f "tokens=2 delims==" %%A in ('"wmic path %sps% get Version /VALUE"') do set ver=%%A
+set "_qr=%_zz7% %sps% %_zz3% Version %_zz8%"
+for /f "tokens=2 delims==" %%A in ('%_qr%') do set slsv=%%A
 reg add "HKLM\%SPPk%" /f /v KeyManagementServiceName /t REG_SZ /d "%KMS_IP%" %_Nul3%
 reg add "HKLM\%SPPk%" /f /v KeyManagementServicePort /t REG_SZ /d "%KMS_Port%" %_Nul3%
-if %W1nd0ws% EQU 0 for /f "tokens=2 delims==" %%G in ('"wmic path %spp% where (ApplicationID='%_wApp%' and Description like '%%KMSCLIENT%%') get ID /VALUE"') do (set app=%%G&call :sppchkwin)
-if %W1nd0ws% EQU 1 if %ActWindows% NEQ 0 for /f "tokens=2 delims==" %%G in ('"wmic path %spp% where (ApplicationID='%_wApp%' and Description like '%%KMSCLIENT%%' %adoff%) get ID /VALUE"') do (set app=%%G&call :sppchkwin)
-rem if %ESU_EDT% EQU 1 if %ActWindows% NEQ 0 for /f "tokens=2 delims==" %%G in ('"wmic path %spp% where (ApplicationID='%_wApp%' and Description like '%%KMSCLIENT%%' %addon%) get ID /VALUE"') do (set app=%%G&call :esuchk)
+if %winbuild% GEQ 9200 (
+if not %xOS%==x86 (
+reg add "HKLM\%SPPk%" /f /v KeyManagementServiceName /t REG_SZ /d "%KMS_IP%" /reg:32 %_Nul3%
+reg add "HKLM\%SPPk%" /f /v KeyManagementServicePort /t REG_SZ /d "%KMS_Port%" /reg:32 %_Nul3%
+reg delete "HKLM\%SPPk%\%_oApp%" /f /reg:32 %_Null%
+reg add "HKLM\%SPPk%\%_oApp%" /f /v KeyManagementServiceName /t REG_SZ /d "%KMS_IP%" /reg:32 %_Nul3%
+reg add "HKLM\%SPPk%\%_oApp%" /f /v KeyManagementServicePort /t REG_SZ /d "%KMS_Port%" /reg:32 %_Nul3%
+)
+reg delete "HKLM\%SPPk%\%_oApp%" /f %_Null%
+reg add "HKLM\%SPPk%\%_oApp%" /f /v KeyManagementServiceName /t REG_SZ /d "%KMS_IP%" %_Nul3%
+reg add "HKLM\%SPPk%\%_oApp%" /f /v KeyManagementServicePort /t REG_SZ /d "%KMS_Port%" %_Nul3%
+)
+set "_qr=%_zz7% %spp% %_zz2% %_zz5%ApplicationID='%_wApp%' and Description like '%%KMSCLIENT%%' %_zz6% %_zz3% ID %_zz8%"
+if %W1nd0ws% EQU 0 for /f "tokens=2 delims==" %%G in ('%_qr%') do (set app=%%G&call :sppchkwin)
+set "_qr=%_zz7% %spp% %_zz2% %_zz5%ApplicationID='%_wApp%' and Description like '%%KMSCLIENT%%' %adoff% %_zz6% %_zz3% ID %_zz8%"
+if %W1nd0ws% EQU 1 if %ActWindows% NEQ 0 for /f "tokens=2 delims==" %%G in ('%_qr%') do (set app=%%G&call :sppchkwin)
+:: set "_qr=%_zz7% %spp% %_zz2% %_zz5%ApplicationID='%_wApp%' and Description like '%%KMSCLIENT%%' %addon% %_zz6% %_zz3% ID %_zz8%"
+:: if %ESU_EDT% EQU 1 if %ActWindows% NEQ 0 for /f "tokens=2 delims==" %%G in ('%_qr%') do (set app=%%G&call :esuchk)
 if %W1nd0ws% EQU 1 if %ActWindows% EQU 0 (echo.&echo Windows activation is OFF...)
-if %Off1ce% EQU 1 if %ActOffice% NEQ 0 for /f "tokens=2 delims==" %%G in ('"wmic path %spp% where (ApplicationID='%_oApp%' and Description like '%%KMSCLIENT%%') get ID /VALUE"') do (set app=%%G&call :sppchkoff)
-if %AUR% EQU 0 (
+set "_qr=%_zz7% %spp% %_zz2% %_zz5%ApplicationID='%_oApp%' and Description like '%%KMSCLIENT%%' %_zz6% %_zz3% ID %_zz8%"
+if %Off1ce% EQU 1 if %ActOffice% NEQ 0 for /f "tokens=2 delims==" %%G in ('%_qr%') do (set app=%%G&call :sppchkoff)
+if %_AUR% EQU 0 (
 call :cREG %_Nul3%
 ) else (
-reg delete "HKLM\%SPPk%" /f /v DisableDnsPublishing %_Nul3%
-reg delete "HKLM\%SPPk%" /f /v DisableKeyManagementServiceHostCaching %_Nul3%
+reg delete "HKLM\%SPPk%" /f /v DisableDnsPublishing %_Null%
+reg delete "HKLM\%SPPk%" /f /v DisableKeyManagementServiceHostCaching %_Null%
 )
 exit /b
 
 :sppoff
 set OffUWP=0
-if %winbuild% GEQ 10240 reg query "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\msosync.exe" %_Nul3% && (
+if %winbuild% GEQ 10240 reg query "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\msoxmled.exe" %_Nul3% && (
 dir /b "%ProgramFiles%\WindowsApps\Microsoft.Office.Desktop*" %_Nul3% && set OffUWP=1
 if not %xOS%==x86 dir /b "%ProgramW6432%\WindowsApps\Microsoft.Office.Desktop*" %_Nul3% && set OffUWP=1
 )
 rem nothing installed
-if %loc_off19% EQU 0 if %loc_off16% EQU 0 if %loc_off15% EQU 0 (
+if %loc_off21% EQU 0 if %loc_off19% EQU 0 if %loc_off16% EQU 0 if %loc_off15% EQU 0 (
 if %OffUWP% EQU 0 (echo.&echo No Installed Office 2013-2021 Product Detected...) else (echo.&echo %_mOuwp%)
 exit /b
 )
 set Off1ce=1
 set _sC2R=sppoff
 set _fC2R=ReturnSPP
-set vol_off15=0&set vol_off16=0&set vol_off19=0
-wmic path %spp% where (Description like '%%KMSCLIENT%%' AND NOT Name like '%%MondoR_KMS_Automation%%') get Name /value > "!_temp!\sppchk.txt" 2>&1
+set vol_off15=0&set vol_off16=0&set vol_off19=0&set vol_off21=0
+set "_qr=%_zz1% %spp% %_zz2% %_zz5%Description like '%%KMSCLIENT%%' AND NOT Name like '%%MondoR_KMS_Automation%%' %_zz6% %_zz3% Name %_zz4%"
+%_qr% > "!_temp!\sppchk.txt" 2>&1
+find /i "Office 21" "!_temp!\sppchk.txt" %_Nul1% && (set vol_off21=1)
 find /i "Office 19" "!_temp!\sppchk.txt" %_Nul1% && (set vol_off19=1)
 find /i "Office 16" "!_temp!\sppchk.txt" %_Nul1% && (set vol_off16=1)
 find /i "Office 15" "!_temp!\sppchk.txt" %_Nul1% && (set vol_off15=1)
-for %%A in (15,16,19) do if !loc_off%%A! EQU 0 set vol_off%%A=0
+for %%A in (15,16,19,21) do if !loc_off%%A! EQU 0 set vol_off%%A=0
+set "_qr=%_zz1% %spp% %_zz2% "ApplicationID='%_oApp%' AND LicenseFamily like 'Office16O365%%'" %_zz3% LicenseFamily %_zz4%"
 if %vol_off16% EQU 1 find /i "Office16MondoVL_KMS_Client" "!_temp!\sppchk.txt" %_Nul1% && (
-wmic path %spp% where 'ApplicationID="%_oApp%" AND LicenseFamily like "Office16O365%%"' get LicenseFamily /value %_Nul2% | find /i "O365" %_Nul1% || (set vol_off16=0)
+%_qr% %_Nul2% | find /i "O365" %_Nul1% || (set vol_off16=0)
 )
+set "_qr=%_zz1% %spp% %_zz2% "ApplicationID='%_oApp%' AND LicenseFamily like 'OfficeO365%%'" %_zz3% LicenseFamily %_zz4%"
 if %vol_off15% EQU 1 find /i "OfficeMondoVL_KMS_Client" "!_temp!\sppchk.txt" %_Nul1% && (
-wmic path %spp% where 'ApplicationID="%_oApp%" AND LicenseFamily like "OfficeO365%%"' get LicenseFamily /value %_Nul2% | find /i "O365" %_Nul1% || (set vol_off15=0)
+%_qr% %_Nul2% | find /i "O365" %_Nul1% || (set vol_off15=0)
 )
-set ret_off15=0&set ret_off16=0&set ret_off19=0
-wmic path %spp% where (ApplicationID='%_oApp%' AND NOT Name like '%%O365%%') get Name /value > "!_temp!\sppchk.txt" 2>&1
+set ret_off15=0&set ret_off16=0&set ret_off19=0&set ret_off21=0
+set "_qr=%_zz1% %spp% %_zz2% %_zz5%ApplicationID='%_oApp%' AND NOT Name like '%%O365%%' %_zz6% %_zz3% Name %_zz4%"
+%_qr% > "!_temp!\sppchk.txt" 2>&1
+find /i "R_Retail" "!_temp!\sppchk.txt" %_Nul2% | find /i "Office 21" %_Nul1% && (set ret_off21=1)
 find /i "R_Retail" "!_temp!\sppchk.txt" %_Nul2% | find /i "Office 19" %_Nul1% && (set ret_off19=1)
 find /i "R_Retail" "!_temp!\sppchk.txt" %_Nul2% | find /i "Office 16" %_Nul1% && (set ret_off16=1)
 find /i "R_Retail" "!_temp!\sppchk.txt" %_Nul2% | find /i "Office 15" %_Nul1% && (set ret_off15=1)
+if %ret_off21% EQU 1 if %_O16MSI% EQU 0 set vol_off21=0
 if %ret_off19% EQU 1 if %_O16MSI% EQU 0 set vol_off19=0
 if %ret_off16% EQU 1 if %_O16MSI% EQU 0 set vol_off16=0
 if %ret_off15% EQU 1 if %_O15MSI% EQU 0 set vol_off15=0
+set run_off16=0
+if defined _C16R if %loc_off16% EQU 1 if %vol_off16% EQU 0 if %ret_off16% EQU 1 (
+for %%a in (%DO16Ids%) do find /i "Office16%%aR" "!_temp!\sppchk.txt" %_Nul1% && (
+  if %vol_off21% EQU 1 find /i "Office21%%a2021VL" "!_temp!\sppchk.txt" %_Nul1% || set run_off16=1
+  if %vol_off19% EQU 1 find /i "Office19%%a2019VL" "!_temp!\sppchk.txt" %_Nul1% || set run_off16=1
+  )
+for %%a in (Professional) do find /i "Office16%%aR" "!_temp!\sppchk.txt" %_Nul1% && (
+  if %vol_off21% EQU 1 find /i "Office21ProPlus2021VL" "!_temp!\sppchk.txt" %_Nul1% || set run_off16=1
+  if %vol_off19% EQU 1 find /i "Office19ProPlus2019VL" "!_temp!\sppchk.txt" %_Nul1% || set run_off16=1
+  )
+for %%a in (HomeBusiness,HomeStudent) do find /i "Office16%%aR" "!_temp!\sppchk.txt" %_Nul1% && (
+  if %vol_off21% EQU 1 find /i "Office21Standard2021VL" "!_temp!\sppchk.txt" %_Nul1% || set run_off16=1
+  if %vol_off19% EQU 1 find /i "Office19Standard2019VL" "!_temp!\sppchk.txt" %_Nul1% || set run_off16=1
+  )
+)
+set "_qr=%_zz1% %spp% %_zz2% %_zz5%ApplicationID='%_oApp%' AND LicenseFamily like 'Office16O365%%' %_zz6% %_zz3% LicenseFamily %_zz4%"
+if defined _C16R if %loc_off16% EQU 1 if %run_off16% EQU 0 %_qr% %_Nul2% | find /i "O365" %_Nul1% && (
+find /i "Office16MondoVL" "!_temp!\sppchk.txt" %_Nul1% || set run_off16=1
+)
 set vol_offgl=1
-if %vol_off19% EQU 0 if %vol_off16% EQU 0 if %vol_off15% EQU 0 set vol_offgl=0
+if %vol_off21% EQU 0 if %vol_off19% EQU 0 if %vol_off16% EQU 0 if %vol_off15% EQU 0 set vol_offgl=0
 rem mixed Volume + Retail
+if %loc_off21% EQU 1 if %vol_off21% EQU 0 if %RunR2V% EQU 0 if %AutoR2V% EQU 1 goto :C2RR2V
 if %loc_off19% EQU 1 if %vol_off19% EQU 0 if %RunR2V% EQU 0 if %AutoR2V% EQU 1 goto :C2RR2V
-if defined _C16R if %loc_off16% EQU 1 if %vol_off16% EQU 0 if %vol_off19% EQU 0 if %RunR2V% EQU 0 if %AutoR2V% EQU 1 goto :C2RR2V
+if defined _C16R if %loc_off16% EQU 1 if %vol_off16% EQU 0 if %RunR2V% EQU 0 if %AutoR2V% EQU 1 if %run_off16% EQU 1 goto :C2RR2V
 if defined _C15R if %loc_off15% EQU 1 if %vol_off15% EQU 0 if %RunR2V% EQU 0 if %AutoR2V% EQU 1 goto :C2RR2V
 if %loc_off16% EQU 0 if %ret_off16% EQU 1 if %_O16MSI% EQU 0 if %OffUWP% EQU 1 (echo.&echo %_mOuwp%)
 rem all supported Volume + message for unsupported
@@ -730,34 +839,44 @@ set Off1ce=0
 rem Retail C2R
 if %RunR2V% EQU 0 if %AutoR2V% EQU 1 goto :C2RR2V
 :ReturnSPP
-rem Retail MSI or failed C2R-R2V
+rem Retail MSI/C2R or failed C2R-R2V
+if %loc_off21% EQU 1 if %vol_off21% EQU 0 (
+if %aC2R21% EQU 1 (echo.&echo %_mO21a%) else (echo.&echo %_mO21c%)
+)
 if %loc_off19% EQU 1 if %vol_off19% EQU 0 (
-echo.&echo %_mO19c%
+if %aC2R19% EQU 1 (echo.&echo %_mO19a%) else (echo.&echo %_mO19c%)
 )
 if %loc_off16% EQU 1 if %vol_off16% EQU 0 (
-if defined _C16R (echo.&echo %_mO16c%) else if %_O16MSI% EQU 1 (if %ret_off16% EQU 1 echo.&echo %_mO16m%)
+if defined _C16R (if %aC2R16% EQU 1 (echo.&echo %_mO16a%) else (echo.&echo %_mO16c%)) else if %_O16MSI% EQU 1 (if %ret_off16% EQU 1 echo.&echo %_mO16m%)
 )
 if %loc_off15% EQU 1 if %vol_off15% EQU 0 (
-if defined _C15R (echo.&echo %_mO15c%) else if %_O15MSI% EQU 1 (if %ret_off15% EQU 1 echo.&echo %_mO15m%)
+if defined _C15R (if %aC2R15% EQU 1 (echo.&echo %_mO15a%) else (echo.&echo %_mO15c%)) else if %_O15MSI% EQU 1 (if %ret_off15% EQU 1 echo.&echo %_mO15m%)
 )
 exit /b
 
 :sppchkoff
-wmic path %spp% where ID='%app%' get Name /value > "!_temp!\sppchk.txt"
+set "_qr=%_zz1% %spp% %_zz2% %_zz5%ID='%app%'%_zz6% %_zz3% Name %_zz4%"
+%_qr% > "!_temp!\sppchk.txt"
 find /i "Office 15" "!_temp!\sppchk.txt" %_Nul1% && (if %loc_off15% EQU 0 exit /b)
 find /i "Office 16" "!_temp!\sppchk.txt" %_Nul1% && (if %loc_off16% EQU 0 exit /b)
 find /i "Office 19" "!_temp!\sppchk.txt" %_Nul1% && (if %loc_off19% EQU 0 exit /b)
+find /i "Office 21" "!_temp!\sppchk.txt" %_Nul1% && (if %loc_off21% EQU 0 exit /b)
 set _officespp=1
-wmic path %spp% where (PartialProductKey is not NULL) get ID /value %_Nul2% | findstr /i "%app%" %_Nul1% && (echo.&call :activate&exit /b)
-for /f "tokens=3 delims==, " %%G in ('"wmic path %spp% where ID='%app%' get Name /value"') do set OffVer=%%G
+set "_qr=%_zz1% %spp% %_zz2% %_zz5%PartialProductKey is not NULL%_zz6% %_zz3% ID %_zz4%"
+%_qr% %_Nul2% | findstr /i "%app%" %_Nul1% && (echo.&call :activate&exit /b)
+set "_qr=%_zz7% %spp% %_zz2% %_zz5%ID='%app%'%_zz6% %_zz3% Name %_zz8%"
+for /f "tokens=3 delims==, " %%G in ('%_qr%') do set OffVer=%%G
 call :offchk%OffVer%
 exit /b
 
 :sppchkwin
 set _officespp=0
-if %winbuild% GEQ 14393 if %WinPerm% EQU 0 if %_gvlk% EQU 0 wmic path %spp% where (ApplicationID='%_wApp%' and Description like '%%KMSCLIENT%%' and PartialProductKey is not NULL) get Name /value %_Nul2% | findstr /i Windows %_Nul1% && (set _gvlk=1)
-wmic path %spp% where ID='%app%' get LicenseStatus /value %_Nul2% | findstr "1" %_Nul1% && (echo.&call :activate&exit /b)
-wmic path %spp% where (PartialProductKey is not NULL) get ID /value %_Nul2% | findstr /i "%app%" %_Nul1% && (echo.&call :activate&exit /b)
+set "_qr=%_zz1% %spp% %_zz2% %_zz5%ApplicationID='%_wApp%' and Description like '%%KMSCLIENT%%' and PartialProductKey is not NULL%_zz6% %_zz3% Name %_zz4%"
+if %winbuild% GEQ 14393 if %WinPerm% EQU 0 if %_gvlk% EQU 0 %_qr% %_Nul2% | findstr /i Windows %_Nul1% && (set _gvlk=1)
+set "_qr=%_zz1% %spp% %_zz2% %_zz5%ID='%app%'%_zz6% %_zz3% LicenseStatus %_zz4%"
+%_qr% %_Nul2% | findstr "1" %_Nul1% && (echo.&call :activate&exit /b)
+set "_qr=%_zz1% %spp% %_zz2% %_zz5%PartialProductKey is not NULL%_zz6% %_zz3% ID %_zz4%"
+%_qr% %_Nul2% | findstr /i "%app%" %_Nul1% && (echo.&call :activate&exit /b)
 if %winbuild% GEQ 14393 if %_gvlk% EQU 1 exit /b
 if %WinPerm% EQU 1 exit /b
 if %winbuild% LSS 10240 (call :winchk&exit /b)
@@ -772,6 +891,9 @@ if /i '%app%' EQU '%%A' exit /b
 )
 if not defined EditionID (call :winchk&exit /b)
 if %winbuild% LSS 14393 (call :winchk&exit /b)
+if /i '%app%' EQU '32d2fab3-e4a8-42c2-923b-4bf4fd13e6ee' if /i %EditionID% NEQ EnterpriseS exit /b
+if /i '%app%' EQU 'ca7df2e3-5ea0-47b8-9ac1-b1be4d8edd69' if /i %EditionID% NEQ CloudEdition exit /b
+if /i '%app%' EQU 'd30136fc-cb4b-416e-a23d-87207abc44a9' if /i %EditionID% NEQ CloudEditionN exit /b
 if /i '%app%' EQU '0df4f814-3f57-4b8b-9a9d-fddadcd69fac' if /i %EditionID% NEQ CloudE exit /b
 if /i '%app%' EQU 'e0c42288-980c-4788-a014-c080d2e1926e' if /i %EditionID% NEQ Education exit /b
 if /i '%app%' EQU '73111121-5638-40f6-bc11-f1d7b0d64300' if /i %EditionID% NEQ Enterprise exit /b
@@ -787,31 +909,37 @@ if /i '%app%' EQU '58e97c99-f377-4ef1-81d5-4ad5522b5fd8' if /i %EditionID% NEQ C
 if /i '%app%' EQU 'cd918a57-a41b-4c82-8dce-1a538e221a83' if /i %EditionID% NEQ CoreSingleLanguage exit /b
 if /i '%app%' EQU 'ec868e65-fadf-4759-b23e-93fe37f2cc29' if /i %EditionID% NEQ ServerRdsh exit /b
 if /i '%app%' EQU 'e4db50ea-bda1-4566-b047-0ca50abc6f07' if /i %EditionID% NEQ ServerRdsh exit /b
-if /i '%app%' EQU 'e4db50ea-bda1-4566-b047-0ca50abc6f07' (
-wmic path %spp% where 'Description like "%%KMSCLIENT%%"' get ID /value | findstr /i "ec868e65-fadf-4759-b23e-93fe37f2cc29" %_Nul3% && (exit /b)
+set "_qr=%_zz1% %spp% %_zz2% "Description like '%%KMSCLIENT%%'" %_zz3% ID %_zz4%"
+if /i "%app%" EQU "e4db50ea-bda1-4566-b047-0ca50abc6f07" (
+%_qr% | findstr /i "ec868e65-fadf-4759-b23e-93fe37f2cc29" %_Nul3% && (exit /b)
 )
 call :winchk
 exit /b
 
 :winchk
 if not defined tok (if %winbuild% GEQ 9200 (set "tok=4") else (set "tok=7"))
-wmic path %spp% where (LicenseStatus='1' and Description like '%%KMSCLIENT%%' %adoff%) get Name /value %_Nul2% | findstr /i "Windows" %_Nul3% && (exit /b)
+set "_qr=%_zz1% %spp% %_zz2% %_zz5%LicenseStatus='1' and Description like '%%KMSCLIENT%%' %adoff% %_zz6% %_zz3% Name %_zz4%"
+%_qr% %_Nul2% | findstr /i "Windows" %_Nul3% && (exit /b)
 echo.
-wmic path %spp% where (LicenseStatus='1' and GracePeriodRemaining='0' %adoff% and PartialProductKey is not NULL) get Name /value %_Nul2% | findstr /i "Windows" %_Nul3% && (
+set "_qr=%_zz1% %spp% %_zz2% %_zz5%LicenseStatus='1' and GracePeriodRemaining='0' %adoff% and PartialProductKey is not NULL%_zz6% %_zz3% Name %_zz4%"
+%_qr% %_Nul2% | findstr /i "Windows" %_Nul3% && (
 set WinPerm=1
 )
-if %WinPerm% EQU 0 (
-wmic path %spp% where "ApplicationID='%_wApp%' and LicenseStatus='1' %adoff%" get Name /value %_Nul2% | findstr /i "Windows" %_Nul3% && (
-for /f "tokens=%tok% delims=, " %%G in ('"wmic path %spp% where (ApplicationID='%_wApp%' and LicenseStatus='1' %adoff%) get Description /VALUE"') do set "channel=%%G"
-  for %%A in (VOLUME_MAK, RETAIL, OEM_DM, OEM_SLP, OEM_COA, OEM_COA_SLP, OEM_COA_NSLP, OEM_NONSLP, OEM) do if /i "%%A"=="!channel!" set WinPerm=1
-  )
+set WinOEM=0
+set "_qr=%_zz1% %spp% %_zz2% %_zz5%ApplicationID='%_wApp%' and LicenseStatus='1' %adoff% %_zz6% %_zz3% Name %_zz4%"
+if %WinPerm% EQU 0 %_qr% %_Nul2% | findstr /i "Windows" %_Nul3% && set WinOEM=1
+set "_qr=%_zz7% %spp% %_zz2% %_zz5%ApplicationID='%_wApp%' and LicenseStatus='1' %adoff% %_zz6% %_zz3% Description %_zz8%"
+if %WinOEM% EQU 1 (
+for /f "tokens=%tok% delims=, " %%G in ('%_qr%') do set "channel=%%G"
+for %%A in (VOLUME_MAK, RETAIL, OEM_DM, OEM_SLP, OEM_COA, OEM_COA_SLP, OEM_COA_NSLP, OEM_NONSLP, OEM) do if /i "%%A"=="!channel!" set WinPerm=1
 )
 if %WinPerm% EQU 0 (
 copy /y %SysPath%\slmgr.vbs "!_temp!\slmgr.vbs" %_Nul3%
 cscript //nologo "!_temp!\slmgr.vbs" /xpr %_Nul2% | findstr /i "permanently" %_Nul3% && set WinPerm=1
 )
+set "_qr=%_zz7% %spp% %_zz2% %_zz5%ApplicationID='%_wApp%' and LicenseStatus='1' %adoff% %_zz6% %_zz3% Name %_zz8%"
 if %WinPerm% EQU 1 (
-for /f "tokens=2 delims==" %%x in ('"wmic path %spp% where (ApplicationID='%_wApp%' and LicenseStatus='1' %adoff%) get Name /VALUE"') do echo Checking: %%x
+for /f "tokens=2 delims==" %%x in ('%_qr%') do echo Checking: %%x
 echo Product is Permanently Activated.
 exit /b
 )
@@ -821,29 +949,38 @@ exit /b
 :esuchk
 set _officespp=0
 set ESU_ADD=1
-wmic path %spp% where ID='%app%' get LicenseStatus /value %_Nul2% | findstr "1" %_Nul1% && (echo.&call :activate&exit /b)
-if /i '%app%' EQU '3fcc2df2-f625-428d-909a-1f76efc849b6' (
-wmic path %spp% where ID="77db037b-95c3-48d7-a3ab-a9c6d41093e0" get LicenseStatus /value %_Nul2% | findstr "1" %_Nul1% && (exit /b)
+set "_qr=%_zz1% %spp% %_zz2% %_zz5%ID='%app%'%_zz6% %_zz3% LicenseStatus %_zz4%"
+%_qr% %_Nul2% | findstr "1" %_Nul1% && (echo.&call :activate&exit /b)
+set "_qr=%_zz1% %spp% %_zz2% %_zz5%ID='77db037b-95c3-48d7-a3ab-a9c6d41093e0'%_zz6% %_zz3% LicenseStatus %_zz4%"
+if /i "%app%" EQU "3fcc2df2-f625-428d-909a-1f76efc849b6" (
+%_qr% %_Nul2% | findstr "1" %_Nul1% && (exit /b)
 )
-if /i '%app%' EQU 'dadfcd24-6e37-47be-8f7f-4ceda614cece' (
-wmic path %spp% where ID="0e00c25d-8795-4fb7-9572-3803d91b6880" get LicenseStatus /value %_Nul2% | findstr "1" %_Nul1% && (exit /b)
+set "_qr=%_zz1% %spp% %_zz2% %_zz5%ID='0e00c25d-8795-4fb7-9572-3803d91b6880'%_zz6% %_zz3% LicenseStatus %_zz4%"
+if /i "%app%" EQU "dadfcd24-6e37-47be-8f7f-4ceda614cece" (
+%_qr% %_Nul2% | findstr "1" %_Nul1% && (exit /b)
 )
-if /i '%app%' EQU '0c29c85e-12d7-4af8-8e4d-ca1e424c480c' (
-wmic path %spp% where ID="4220f546-f522-46df-8202-4d07afd26454" get LicenseStatus /value %_Nul2% | findstr "1" %_Nul1% && (exit /b)
+set "_qr=%_zz1% %spp% %_zz2% %_zz5%ID='4220f546-f522-46df-8202-4d07afd26454'%_zz6% %_zz3% LicenseStatus %_zz4%"
+if /i "%app%" EQU "0c29c85e-12d7-4af8-8e4d-ca1e424c480c" (
+%_qr% %_Nul2% | findstr "1" %_Nul1% && (exit /b)
 )
-if /i '%app%' EQU 'f2b21bfc-a6b0-4413-b4bb-9f06b55f2812' (
-wmic path %spp% where ID="553673ed-6ddf-419c-a153-b760283472fd" get LicenseStatus /value %_Nul2% | findstr "1" %_Nul1% && (exit /b)
+set "_qr=%_zz1% %spp% %_zz2% %_zz5%ID='553673ed-6ddf-419c-a153-b760283472fd'%_zz6% %_zz3% LicenseStatus %_zz4%"
+if /i "%app%" EQU "f2b21bfc-a6b0-4413-b4bb-9f06b55f2812" (
+%_qr% %_Nul2% | findstr "1" %_Nul1% && (exit /b)
 )
-if /i '%app%' EQU 'bfc078d0-8c7f-475c-8519-accc46773113' (
-wmic path %spp% where ID="04fa0286-fa74-401e-bbe9-fbfbb158010d" get LicenseStatus /value %_Nul2% | findstr "1" %_Nul1% && (exit /b)
+set "_qr=%_zz1% %spp% %_zz2% %_zz5%ID='04fa0286-fa74-401e-bbe9-fbfbb158010d'%_zz6% %_zz3% LicenseStatus %_zz4%"
+if /i "%app%" EQU "bfc078d0-8c7f-475c-8519-accc46773113" (
+%_qr% %_Nul2% | findstr "1" %_Nul1% && (exit /b)
 )
-if /i '%app%' EQU '23c6188f-c9d8-457e-81b6-adb6dacb8779' (
-wmic path %spp% where ID="16c08c85-0c8b-4009-9b2b-f1f7319e45f9" get LicenseStatus /value %_Nul2% | findstr "1" %_Nul1% && (exit /b)
+set "_qr=%_zz1% %spp% %_zz2% %_zz5%ID='16c08c85-0c8b-4009-9b2b-f1f7319e45f9'%_zz6% %_zz3% LicenseStatus %_zz4%"
+if /i "%app%" EQU "23c6188f-c9d8-457e-81b6-adb6dacb8779" (
+%_qr% %_Nul2% | findstr "1" %_Nul1% && (exit /b)
 )
-if /i '%app%' EQU 'e7cce015-33d6-41c1-9831-022ba63fe1da' (
-wmic path %spp% where ID="8e7bfb1e-acc1-4f56-abae-b80fce56cd4b" get LicenseStatus /value %_Nul2% | findstr "1" %_Nul1% && (exit /b)
+set "_qr=%_zz1% %spp% %_zz2% %_zz5%ID='8e7bfb1e-acc1-4f56-abae-b80fce56cd4b'%_zz6% %_zz3% LicenseStatus %_zz4%"
+if /i "%app%" EQU "e7cce015-33d6-41c1-9831-022ba63fe1da" (
+%_qr% %_Nul2% | findstr "1" %_Nul1% && (exit /b)
 )
-wmic path %spp% where (PartialProductKey is not NULL) get ID /value %_Nul2% | findstr /i "%app%" %_Nul1% && (echo.&call :activate&exit /b)
+set "_qr=%_zz1% %spp% %_zz2% %_zz5%PartialProductKey is not NULL%_zz6% %_zz3% ID %_zz4%"
+%_qr% %_Nul2% | findstr /i "%app%" %_Nul1% && (echo.&call :activate&exit /b)
 call :insKey
 exit /b
 
@@ -852,6 +989,10 @@ set spp=OfficeSoftwareProtectionProduct
 set sps=OfficeSoftwareProtectionService
 set Off1ce=0
 set RunR2V=0
+set aC2R21=0
+set aC2R19=0
+set aC2R16=0
+set aC2R15=0
 if %winbuild% LSS 9200 (set "aword=2010-2021") else (set "aword=2010")
 if %OsppHook% EQU 0 (echo.&echo No Installed Office %aword% Product Detected...&exit /b)
 if %winbuild% GEQ 9200 if %loc_off14% EQU 0 (echo.&echo No Installed Office %aword% Product Detected...&exit /b)
@@ -864,70 +1005,101 @@ if %err_offsvc% EQU 1 (echo.&echo Error: osppsvc service is not running...&exit 
 if %winbuild% GEQ 9200 call :win8off
 if %winbuild% LSS 9200 call :win7off
 if %Off1ce% EQU 0 exit /b
-if %AUR% EQU 0 (
-reg delete "HKLM\%OPPk%\%_oA14%" /f %_Nul3%
-reg delete "HKLM\%OPPk%\%_oApp%" /f %_Nul3%
+if %_AUR% EQU 0 (
+reg delete "HKLM\%OPPk%\%_oA14%" /f %_Null%
+reg delete "HKLM\%OPPk%\%_oApp%" /f %_Null%
 )
 set "vPrem="&set "vProf="
-if %loc_off14% EQU 1 (
-for /f "tokens=2 delims==" %%A in ('"wmic path %spp% where (LicenseFamily='OfficeVisioPrem-MAK') get LicenseStatus /VALUE" %_Nul6%') do set vPrem=%%A
-for /f "tokens=2 delims==" %%A in ('"wmic path %spp% where (LicenseFamily='OfficeVisioPro-MAK') get LicenseStatus /VALUE" %_Nul6%') do set vProf=%%A
-)
-for /f "tokens=2 delims==" %%A in ('"wmic path %sps% get Version /VALUE" %_Nul6%') do set ver=%%A
+set "_qr=%_zz7% %spp% %_zz2% %_zz5%LicenseFamily='OfficeVisioPrem-MAK'%_zz6% %_zz3% LicenseStatus %_zz8%"
+if %loc_off14% EQU 1 for /f "tokens=2 delims==" %%A in ('%_qr% %_Nul6%') do set vPrem=%%A
+set "_qr=%_zz7% %spp% %_zz2% %_zz5%LicenseFamily='OfficeVisioPro-MAK'%_zz6% %_zz3% LicenseStatus %_zz8%"
+if %loc_off14% EQU 1 for /f "tokens=2 delims==" %%A in ('%_qr% %_Nul6%') do set vProf=%%A
+set "_qr=%_zz7% %sps% %_zz3% Version %_zz8%"
+for /f "tokens=2 delims==" %%A in ('%_qr% %_Nul6%') do set slsv=%%A
 reg add "HKLM\%OPPk%" /f /v KeyManagementServiceName /t REG_SZ /d "%KMS_IP%" %_Nul3%
 reg add "HKLM\%OPPk%" /f /v KeyManagementServicePort /t REG_SZ /d "%KMS_Port%" %_Nul3%
-for /f "tokens=2 delims==" %%G in ('"wmic path %spp% where (Description like '%%KMSCLIENT%%') get ID /VALUE"') do (set app=%%G&call :osppchk)
-if %AUR% EQU 0 (
+set "_qr=%_zz7% %spp% %_zz2% %_zz5%Description like '%%KMSCLIENT%%' %_zz6% %_zz3% ID %_zz8%"
+for /f "tokens=2 delims==" %%G in ('%_qr%') do (set app=%%G&call :osppchk)
+if %_AUR% EQU 0 (
 call :cREG %_Nul3%
 ) else (
-reg delete "HKLM\%OPPk%" /f /v DisableDnsPublishing %_Nul3%
-reg delete "HKLM\%OPPk%" /f /v DisableKeyManagementServiceHostCaching %_Nul3%
+reg delete "HKLM\%OPPk%" /f /v DisableDnsPublishing %_Null%
+reg delete "HKLM\%OPPk%" /f /v DisableKeyManagementServiceHostCaching %_Null%
 )
 exit /b
 
 :win8off
-wmic path %spp% get Description /value %_Nul2% | findstr /i KMSCLIENT %_Nul1% && (
+set "_qr=%_zz1% %spp% %_zz3% Description %_zz4%"
+%_qr% %_Nul2% | findstr /i KMSCLIENT %_Nul1% && (
 set Off1ce=1
 exit /b
 )
 set ret_off14=0
-wmic path %spp% get Description /value %_Nul2% | findstr /i channel %_Nul1% && (set ret_off14=1)
+%_qr% %_Nul2% | findstr /i channel %_Nul1% && (set ret_off14=1)
 if defined _C14R (echo.&echo %_mO14c%) else if %_O14MSI% EQU 1 (if %ret_off14% EQU 1 echo.&echo %_mO14m%)
 exit /b
 
 :win7off
 rem nothing installed
-if %loc_off19% EQU 0 if %loc_off16% EQU 0 if %loc_off15% EQU 0 if %loc_off14% EQU 0 (echo.&echo No Installed Office %aword% Product Detected...&exit /b)
+if %loc_off21% EQU 0 if %loc_off19% EQU 0 if %loc_off16% EQU 0 if %loc_off15% EQU 0 if %loc_off14% EQU 0 (echo.&echo No Installed Office %aword% Product Detected...&exit /b)
 set Off1ce=1
 set _sC2R=win7off
 set _fC2R=ReturnOSPP
-set vol_off14=0&set vol_off15=0&set vol_off16=0&set vol_off19=0
-wmic path %spp% where (Description like '%%KMSCLIENT%%' AND NOT Name like '%%MondoR_KMS_Automation%%') get Name /value > "!_temp!\sppchk.txt" 2>&1
+set vol_off14=0&set vol_off15=0&set vol_off16=0&set vol_off19=0&set vol_off21=0
+set "_qr=%_zz1% %spp% %_zz2% %_zz5%Description like '%%KMSCLIENT%%' AND NOT Name like '%%MondoR_KMS_Automation%%' %_zz6% %_zz3% Name %_zz4%"
+%_qr% > "!_temp!\sppchk.txt" 2>&1
+find /i "Office 21" "!_temp!\sppchk.txt" %_Nul1% && (set vol_off21=1)
 find /i "Office 19" "!_temp!\sppchk.txt" %_Nul1% && (set vol_off19=1)
 find /i "Office 16" "!_temp!\sppchk.txt" %_Nul1% && (set vol_off16=1)
 find /i "Office 15" "!_temp!\sppchk.txt" %_Nul1% && (set vol_off15=1)
 find /i "Office 14" "!_temp!\sppchk.txt" %_Nul1% && (set vol_off14=1)
-for %%A in (14,15,16,19) do if !loc_off%%A! EQU 0 set vol_off%%A=0
+for %%A in (14,15,16,19,21) do if !loc_off%%A! EQU 0 set vol_off%%A=0
+set "_qr=%_zz1% %spp% %_zz2% "ApplicationID='%_oApp%' AND LicenseFamily like 'Office16O365%%'" %_zz3% LicenseFamily %_zz4%"
 if %vol_off16% EQU 1 find /i "Office16MondoVL_KMS_Client" "!_temp!\sppchk.txt" %_Nul1% && (
-wmic path %spp% where 'ApplicationID="%_oApp%" AND LicenseFamily like "Office16O365%%"' get LicenseFamily /value %_Nul2% | find /i "O365" %_Nul1% || (set vol_off16=0)
+%_qr% %_Nul2% | find /i "O365" %_Nul1% || (set vol_off16=0)
 )
+set "_qr=%_zz1% %spp% %_zz2% "ApplicationID='%_oApp%' AND LicenseFamily like 'OfficeO365%%'" %_zz3% LicenseFamily %_zz4%"
 if %vol_off15% EQU 1 find /i "OfficeMondoVL_KMS_Client" "!_temp!\sppchk.txt" %_Nul1% && (
-wmic path %spp% where 'ApplicationID="%_oApp%" AND LicenseFamily like "OfficeO365%%"' get LicenseFamily /value %_Nul2% | find /i "O365" %_Nul1% || (set vol_off15=0)
+%_qr% %_Nul2% | find /i "O365" %_Nul1% || (set vol_off15=0)
 )
-set ret_off14=0&set ret_off15=0&set ret_off16=0&set ret_off19=0
-wmic path %spp% where (ApplicationID='%_oApp%' AND NOT Name like '%%O365%%') get Name /value > "!_temp!\sppchk.txt" 2>&1
+set ret_off14=0&set ret_off15=0&set ret_off16=0&set ret_off19=0&set ret_off21=0
+set "_qr=%_zz1% %spp% %_zz2% %_zz5%ApplicationID='%_oApp%' AND NOT Name like '%%O365%%' %_zz6% %_zz3% Name %_zz4%"
+%_qr% > "!_temp!\sppchk.txt" 2>&1
+find /i "R_Retail" "!_temp!\sppchk.txt" %_Nul2% | find /i "Office 21" %_Nul1% && (set ret_off21=1)
 find /i "R_Retail" "!_temp!\sppchk.txt" %_Nul2% | find /i "Office 19" %_Nul1% && (set ret_off19=1)
 find /i "R_Retail" "!_temp!\sppchk.txt" %_Nul2% | find /i "Office 16" %_Nul1% && (set ret_off16=1)
 find /i "R_Retail" "!_temp!\sppchk.txt" %_Nul2% | find /i "Office 15" %_Nul1% && (set ret_off15=1)
+if %ret_off21% EQU 1 if %_O16MSI% EQU 0 set vol_off21=0
 if %ret_off19% EQU 1 if %_O16MSI% EQU 0 set vol_off19=0
 if %ret_off16% EQU 1 if %_O16MSI% EQU 0 set vol_off16=0
 if %ret_off15% EQU 1 if %_O15MSI% EQU 0 set vol_off15=0
-if %vol_off14% EQU 0 wmic path %spp% where ApplicationID='%_oA14%' get Description /value %_Nul2% | findstr /i channel %_Nul1% && (set ret_off14=1)
+set "_qr=%_zz1% %spp% %_zz2% %_zz5%ApplicationID='%_oA14%'%_zz6% %_zz3% Description %_zz4%"
+if %vol_off14% EQU 0 %_qr% %_Nul2% | findstr /i channel %_Nul1% && (set ret_off14=1)
+set run_off16=0
+if defined _C16R if %loc_off16% EQU 1 if %vol_off16% EQU 0 if %ret_off16% EQU 1 (
+for %%a in (%DO16Ids%) do find /i "Office16%%aR" "!_temp!\sppchk.txt" %_Nul1% && (
+  if %vol_off21% EQU 1 find /i "Office21%%a2021VL" "!_temp!\sppchk.txt" %_Nul1% || set run_off16=1
+  if %vol_off19% EQU 1 find /i "Office19%%a2019VL" "!_temp!\sppchk.txt" %_Nul1% || set run_off16=1
+  )
+for %%a in (Professional) do find /i "Office16%%aR" "!_temp!\sppchk.txt" %_Nul1% && (
+  if %vol_off21% EQU 1 find /i "Office21ProPlus2021VL" "!_temp!\sppchk.txt" %_Nul1% || set run_off16=1
+  if %vol_off19% EQU 1 find /i "Office19ProPlus2019VL" "!_temp!\sppchk.txt" %_Nul1% || set run_off16=1
+  )
+for %%a in (HomeBusiness,HomeStudent) do find /i "Office16%%aR" "!_temp!\sppchk.txt" %_Nul1% && (
+  if %vol_off21% EQU 1 find /i "Office21Standard2021VL" "!_temp!\sppchk.txt" %_Nul1% || set run_off16=1
+  if %vol_off19% EQU 1 find /i "Office19Standard2019VL" "!_temp!\sppchk.txt" %_Nul1% || set run_off16=1
+  )
+)
+set "_qr=%_zz1% %spp% %_zz2% %_zz5%ApplicationID='%_oApp%' AND LicenseFamily like 'Office16O365%%' %_zz6% %_zz3% LicenseFamily %_zz4%"
+if defined _C16R if %loc_off16% EQU 1 if %run_off16% EQU 0 %_qr% %_Nul2% | find /i "O365" %_Nul1% && (
+find /i "Office16MondoVL" "!_temp!\sppchk.txt" %_Nul1% || set run_off16=1
+)
 set vol_offgl=1
-if %vol_off19% EQU 0 if %vol_off16% EQU 0 if %vol_off15% EQU 0 if %vol_off14% EQU 0 set vol_offgl=0
+if %vol_off21% EQU 0 if %vol_off19% EQU 0 if %vol_off16% EQU 0 if %vol_off15% EQU 0 if %vol_off14% EQU 0 set vol_offgl=0
 rem mixed Volume + Retail
+if %loc_off21% EQU 1 if %vol_off21% EQU 0 if %RunR2V% EQU 0 if %AutoR2V% EQU 1 goto :C2RR2V
 if %loc_off19% EQU 1 if %vol_off19% EQU 0 if %RunR2V% EQU 0 if %AutoR2V% EQU 1 goto :C2RR2V
-if defined _C16R if %loc_off16% EQU 1 if %vol_off16% EQU 0 if %vol_off19% EQU 0 if %RunR2V% EQU 0 if %AutoR2V% EQU 1 goto :C2RR2V
+if defined _C16R if %loc_off16% EQU 1 if %vol_off16% EQU 0 if %RunR2V% EQU 0 if %AutoR2V% EQU 1 if %run_off16% EQU 1 goto :C2RR2V
 if defined _C15R if %loc_off15% EQU 1 if %vol_off15% EQU 0 if %RunR2V% EQU 0 if %AutoR2V% EQU 1 goto :C2RR2V
 rem all supported Volume + message for unsupported
 if %vol_offgl% EQU 1 (
@@ -940,15 +1112,18 @@ set Off1ce=0
 rem Retail C2R
 if %RunR2V% EQU 0 if %AutoR2V% EQU 1 goto :C2RR2V
 :ReturnOSPP
-rem Retail MSI or failed C2R-R2V
+rem Retail MSI/C2R or failed C2R-R2V
+if %loc_off21% EQU 1 if %vol_off21% EQU 0 (
+if %aC2R21% EQU 1 (echo.&echo %_mO21a%) else (echo.&echo %_mO21c%)
+)
 if %loc_off19% EQU 1 if %vol_off19% EQU 0 (
-echo.&echo %_mO19c%
+if %aC2R19% EQU 1 (echo.&echo %_mO19a%) else (echo.&echo %_mO19c%)
 )
 if %loc_off16% EQU 1 if %vol_off16% EQU 0 (
-if defined _C16R (echo.&echo %_mO16c%) else if %_O16MSI% EQU 1 (if %ret_off16% EQU 1 echo.&echo %_mO16m%)
+if defined _C16R (if %aC2R16% EQU 1 (echo.&echo %_mO16a%) else (echo.&echo %_mO16c%)) else if %_O16MSI% EQU 1 (if %ret_off16% EQU 1 echo.&echo %_mO16m%)
 )
 if %loc_off15% EQU 1 if %vol_off15% EQU 0 (
-if defined _C15R (echo.&echo %_mO15c%) else if %_O15MSI% EQU 1 (if %ret_off15% EQU 1 echo.&echo %_mO15m%)
+if defined _C15R (if %aC2R15% EQU 1 (echo.&echo %_mO15a%) else (echo.&echo %_mO15c%)) else if %_O15MSI% EQU 1 (if %ret_off15% EQU 1 echo.&echo %_mO15m%)
 )
 if %loc_off14% EQU 1 if %vol_off14% EQU 0 (
 if defined _C14R (echo.&echo %_mO14c%) else if %_O14MSI% EQU 1 (if %ret_off14% EQU 1 echo.&echo %_mO14m%)
@@ -956,32 +1131,75 @@ if defined _C14R (echo.&echo %_mO14c%) else if %_O14MSI% EQU 1 (if %ret_off14% E
 exit /b
 
 :osppchk
-wmic path %spp% where ID='%app%' get Name /value > "!_temp!\sppchk.txt"
+set "_qr=%_zz1% %spp% %_zz2% %_zz5%ID='%app%'%_zz6% %_zz3% Name %_zz4%"
+%_qr% > "!_temp!\sppchk.txt"
 find /i "Office 14" "!_temp!\sppchk.txt" %_Nul1% && (if %loc_off14% EQU 0 exit /b)
 find /i "Office 15" "!_temp!\sppchk.txt" %_Nul1% && (if %loc_off15% EQU 0 exit /b)
 find /i "Office 16" "!_temp!\sppchk.txt" %_Nul1% && (if %loc_off16% EQU 0 exit /b)
 find /i "Office 19" "!_temp!\sppchk.txt" %_Nul1% && (if %loc_off19% EQU 0 exit /b)
+find /i "Office 21" "!_temp!\sppchk.txt" %_Nul1% && (if %loc_off21% EQU 0 exit /b)
 set _officespp=0
-wmic path %spp% where (PartialProductKey is not NULL) get ID /value %_Nul2% | findstr /i "%app%" %_Nul1% && (echo.&call :activate&exit /b)
-for /f "tokens=3 delims==, " %%G in ('"wmic path %spp% where ID='%app%' get Name /value"') do set OffVer=%%G
+set "_qr=%_zz1% %spp% %_zz2% %_zz5%PartialProductKey is not NULL%_zz6% %_zz3% ID %_zz4%"
+%_qr% %_Nul2% | findstr /i "%app%" %_Nul1% && (echo.&call :activate&exit /b)
+set "_qr=%_zz7% %spp% %_zz2% %_zz5%ID='%app%'%_zz6% %_zz3% Name %_zz8%"
+for /f "tokens=3 delims==, " %%G in ('%_qr%') do set OffVer=%%G
 call :offchk%OffVer%
 exit /b
 
 :offchk
 set ls=0
 set ls2=0
-for /f "tokens=2 delims==" %%A in ('"wmic path %spp% where (LicenseFamily='Office%~1') get LicenseStatus /VALUE" %_Nul6%') do set /a ls=%%A
-if "%~3" NEQ "" (
-for /f "tokens=2 delims==" %%A in ('"wmic path %spp% where (LicenseFamily='Office%~3') get LicenseStatus /VALUE" %_Nul6%') do set /a ls2=%%A
+set ls3=0
+set "_qr=%_zz7% %spp% %_zz2% %_zz5%LicenseFamily='Office%~1'%_zz6% %_zz3% LicenseStatus %_zz8%"
+for /f "tokens=2 delims==" %%A in ('%_qr% %_Nul6%') do set /a ls=%%A
+set "_qr=%_zz7% %spp% %_zz2% %_zz5%LicenseFamily='Office%~3'%_zz6% %_zz3% LicenseStatus %_zz8%"
+if /i not "%~3"=="" for /f "tokens=2 delims==" %%A in ('%_qr% %_Nul6%') do set /a ls2=%%A
+set "_qr=%_zz7% %spp% %_zz2% %_zz5%LicenseFamily='Office%~5'%_zz6% %_zz3% LicenseStatus %_zz8%"
+if /i not "%~5"=="" for /f "tokens=2 delims==" %%A in ('%_qr% %_Nul6%') do set /a ls3=%%A
+if "%ls3%"=="1" (
+echo Checking: %~6
+echo Product is Permanently Activated.
+exit /b
 )
-if "%ls2%" EQU "1" (
+if "%ls2%"=="1" (
 echo Checking: %~4
 echo Product is Permanently Activated.
 exit /b
 )
-if "%ls%" EQU "1" (
+if "%ls%"=="1" (
 echo Checking: %~2
 echo Product is Permanently Activated.
+exit /b
+)
+call :insKey
+exit /b
+
+:offchk21
+if /i '%app%' EQU 'f3fb2d68-83dd-4c8b-8f09-08e0d950ac3b' exit /b
+if /i '%app%' EQU '76093b1b-7057-49d7-b970-638ebcbfd873' exit /b
+if /i '%app%' EQU 'a3b44174-2451-4cd6-b25f-66638bfb9046' exit /b
+if /i '%app%' EQU 'fbdb3e18-a8ef-4fb3-9183-dffd60bd0984' (
+call :offchk "21ProPlus2021VL_MAK_AE1" "Office ProPlus 2021" "21ProPlus2021VL_MAK_AE2"
+exit /b
+)
+if /i '%app%' EQU '080a45c5-9f9f-49eb-b4b0-c3c610a5ebd3' (
+call :offchk "21Standard2021VL_MAK_AE" "Office Standard 2021"
+exit /b
+)
+if /i '%app%' EQU '76881159-155c-43e0-9db7-2d70a9a3a4ca' (
+call :offchk "21ProjectPro2021VL_MAK_AE1" "Project Pro 2021" "21ProjectPro2021VL_MAK_AE2"
+exit /b
+)
+if /i '%app%' EQU '6dd72704-f752-4b71-94c7-11cec6bfc355' (
+call :offchk "21ProjectStd2021VL_MAK_AE" "Project Standard 2021"
+exit /b
+)
+if /i '%app%' EQU 'fb61ac9a-1688-45d2-8f6b-0674dbffa33c' (
+call :offchk "21VisioPro2021VL_MAK_AE" "Visio Pro 2021"
+exit /b
+)
+if /i '%app%' EQU '72fce797-1884-48dd-a860-b2f6a5efd3ca' (
+call :offchk "21VisioStd2021VL_MAK_AE" "Visio Standard 2021"
 exit /b
 )
 call :insKey
@@ -1133,6 +1351,9 @@ set loc_off%1=0
 set _O%1MSI=0
 if %1 EQU 19 (
 if defined _C16R reg query %_C16R% /v ProductReleaseIds %_Nul2% | findstr 2019 %_Nul1% && set loc_off%1=1
+exit /b
+)
+if %1 EQU 21 (
 if defined _C16R reg query %_C16R% /v ProductReleaseIds %_Nul2% | findstr 2021 %_Nul1% && set loc_off%1=1
 exit /b
 )
@@ -1171,12 +1392,15 @@ exit /b
 set S_OK=1
 echo.
 set "_key="
-if %ESU_ADD% EQU 0 for /f "tokens=2 delims==" %%x in ('"wmic path %spp% where ID='%app%' get Name /VALUE"') do echo Installing Key: %%x
-if %ESU_ADD% EQU 1 for /f "tokens=2 delims==f" %%x in ('"wmic path %spp% where ID='%app%' get Name /VALUE"') do echo Installing Key: %%x
+set "_qr=%_zz7% %spp% %_zz2% %_zz5%ID='%app%'%_zz6% %_zz3% Name %_zz8%"
+if %ESU_ADD% EQU 0 for /f "tokens=2 delims==" %%x in ('%_qr%') do echo Installing Key: %%x
+if %ESU_ADD% EQU 1 for /f "tokens=2 delims==f" %%x in ('%_qr%') do echo Installing Key: %%x
 set ESU_ADD=0
 call :keys %app%
 if "%_key%"=="" (echo No associated KMS Client key found&exit /b)
-wmic path %sps% where version='%ver%' call InstallProductKey ProductKey="%_key%" %_Nul3%
+set "_qr=wmic path %sps% where Version='%slsv%' call InstallProductKey ProductKey="%_key%""
+if %WMI_VBS% NEQ 0 set "_qr=%_csp% %sps% "%_key%""
+%_qr% %_Nul3%
 set ERRORCODE=%ERRORLEVEL%
 if %ERRORCODE% NEQ 0 (
 cmd /c exit /b %ERRORCODE%
@@ -1184,28 +1408,34 @@ echo Failed: 0x!=ExitCode!
 set S_OK=0
 exit /b
 )
-if %sps% EQU SoftwareLicensingService wmic path %sps% where version='%ver%' call RefreshLicenseStatus %_Nul3%
+set "_qr=wmic path %sps% where Version='%slsv%' call RefreshLicenseStatus"
+if %WMI_VBS% NEQ 0 set "_qr=%_csm% "%sps%.Version='%slsv%'" RefreshLicenseStatus"
+if %sps% EQU SoftwareLicensingService %_qr% %_Nul3%
 
 :activate
 set S_OK=1
 if %sps% EQU SoftwareLicensingService (
-if %_officespp% EQU 0 (reg delete "HKLM\%SPPk%\%_wApp%\%app%" /f %_Nul3%) else (reg delete "HKLM\%SPPk%\%_oApp%\%app%" /f %_Nul3%)
+if %_officespp% EQU 0 (reg delete "HKLM\%SPPk%\%_wApp%\%app%" /f %_Null%) else (reg delete "HKLM\%SPPk%\%_oApp%\%app%" /f %_Null%)
 ) else (
-reg delete "HKLM\%OPPk%\%_oA14%\%app%" /f %_Nul3%
-reg delete "HKLM\%OPPk%\%_oApp%\%app%" /f %_Nul3%
+reg delete "HKLM\%OPPk%\%_oA14%\%app%" /f %_Null%
+reg delete "HKLM\%OPPk%\%_oApp%\%app%" /f %_Null%
 )
+set "_qr=%_zz7% %spp% %_zz2% %_zz5%ID='%app%'%_zz6% %_zz3% Name %_zz8%"
 if %W1nd0ws% EQU 0 if %_officespp% EQU 0 if %sps% EQU SoftwareLicensingService (
 reg add "HKLM\%SPPk%\%_wApp%\%app%" /f /v KeyManagementServiceName /t REG_SZ /d "127.0.0.2" %_Nul3%
 reg add "HKLM\%SPPk%\%_wApp%\%app%" /f /v KeyManagementServicePort /t REG_SZ /d "%KMS_Port%" %_Nul3%
 reg add "HKU\S-1-5-20\%SPPk%\%_wApp%\%app%" /f /v DiscoveredKeyManagementServiceIpAddress /t REG_SZ /d "127.0.0.2" %_Nul3%
-for /f "tokens=2 delims==" %%x in ('"wmic path %spp% where ID='%app%' get Name /VALUE"') do echo Checking: %%x
+for /f "tokens=2 delims==" %%x in ('%_qr%') do echo Checking: %%x
 echo Product is KMS 2038 Activated.
 exit /b
 )
-if %ESU_ADD% EQU 0 for /f "tokens=2 delims==" %%x in ('"wmic path %spp% where ID='%app%' get Name /VALUE"') do echo Activating: %%x
-if %ESU_ADD% EQU 1 for /f "tokens=2 delims==f" %%x in ('"wmic path %spp% where ID='%app%' get Name /VALUE"') do echo Activating: %%x
+set "_qr=%_zz7% %spp% %_zz2% %_zz5%ID='%app%'%_zz6% %_zz3% Name %_zz8%"
+if %ESU_ADD% EQU 0 for /f "tokens=2 delims==" %%x in ('%_qr%') do echo Activating: %%x
+if %ESU_ADD% EQU 1 for /f "tokens=2 delims==f" %%x in ('%_qr%') do echo Activating: %%x
 set ESU_ADD=0
-wmic path %spp% where ID='%app%' call Activate %_Nul3%
+set "_qr=wmic path %spp% where ID='%app%' call Activate"
+if %WMI_VBS% NEQ 0 set "_qr=%_csm% "%spp%.ID='%app%'" Activate"
+%_qr% %_Nul3%
 call set ERRORCODE=%ERRORLEVEL%
 if %ERRORCODE% EQU -1073418187 (
 echo Product Activation Failed: 0xC004F035
@@ -1221,12 +1451,13 @@ exit /b
 )
 if %ERRORCODE% NEQ 0 (
 if %sps% EQU SoftwareLicensingService (call :StopService sppsvc) else (call :StopService osppsvc)
-wmic path %spp% where ID='%app%' call Activate %_Nul3%
+%_qr% %_Nul3%
 call set ERRORCODE=!ERRORLEVEL!
 )
 set gpr=0
 set gpr2=0
-for /f "tokens=2 delims==" %%x in ('"wmic path %spp% where ID='%app%' get GracePeriodRemaining /VALUE"') do (set gpr=%%x&set /a "gpr2=(%%x+1440-1)/1440")
+set "_qr=%_zz7% %spp% %_zz2% %_zz5%ID='%app%'%_zz6% %_zz3% GracePeriodRemaining %_zz8%"
+for /f "tokens=2 delims==" %%x in ('%_qr%') do (set gpr=%%x&set /a "gpr2=(%%x+1440-1)/1440")
 if %ERRORCODE% EQU 0 if %gpr% EQU 0 (
 echo Product Activation succeeded, but Remaining Period failed to increase.
 if %OSType% EQU Win7 echo This could be related to the error described in KB4487266
@@ -1275,15 +1506,17 @@ echo.&echo %line3%&echo.
 echo Installing Local KMS Emulator...
 )
 set "AddExc="
+set "_qr=WMIC /NAMESPACE:\\root\Microsoft\Windows\Defender PATH MSFT_MpPreference call Add ExclusionPath=%_Hook% Force=True"
+if %WMI_VBS% NEQ 0 set "_qr=%_csd% Add %_Hook%"
 if %winbuild% GEQ 9600 (
-  WMIC /NAMESPACE:\\root\Microsoft\Windows\Defender PATH MSFT_MpPreference call Add ExclusionPath=%_Hook% Force=True %_Nul3% && set "AddExc= and Windows Defender exclusion"
+  %_qr% %_Nul3% && set "AddExc= and Windows Defender exclusion"
 )
 if %_verb% EQU 1 (
 echo.
 echo Adding File%AddExc%...
 echo %SystemRoot%\System32\SppExtComObjHook.dll
 )
-if %AUR% EQU 1 (
+if %_AUR% EQU 1 (
 call :StopService sppsvc
 if %OsppHook% NEQ 0 call :StopService osppsvc
 )
@@ -1298,8 +1531,8 @@ echo.
 echo Adding Registry Keys...
 )
 if %SSppHook% NEQ 0 call :CreateIFEOEntry %SppVer%
-if %AUR% EQU 1 (call :CreateIFEOEntry osppsvc.exe) else (if %OsppHook% NEQ 0 call :CreateIFEOEntry osppsvc.exe)
-if %AUR% EQU 1 if %OSType% EQU Win7 (
+if %_AUR% EQU 1 (call :CreateIFEOEntry osppsvc.exe) else (if %OsppHook% NEQ 0 call :CreateIFEOEntry osppsvc.exe)
+if %_AUR% EQU 1 if %OSType% EQU Win7 (
 call :CreateIFEOEntry SppExtComObj.exe
 if %SSppHook% NEQ 0 if not exist %w7inf% (
   if %_verb% EQU 1 (echo.&echo Adding migration fail-safe...&echo %w7inf%)
@@ -1316,7 +1549,7 @@ if %SSppHook% NEQ 0 if not exist %w7inf% (
   )>%w7inf%
   )
 )
-if %AUR% EQU 1 if %OSType% EQU Win8 call :CreateTask
+if %_AUR% EQU 1 if %OSType% EQU Win8 call :CreateTask
 if %_verb% EQU 1 echo.&echo %line3%&echo.
 goto :%_rtr%
 
@@ -1326,9 +1559,11 @@ set "_para=/d /r"
 goto :DoDebug
 )
 set "RemExc="
+set "_qr=WMIC /NAMESPACE:\\root\Microsoft\Windows\Defender PATH MSFT_MpPreference call Remove ExclusionPath=%_Hook% Force=True"
+if %WMI_VBS% NEQ 0 set "_qr=%_csd% Remove %_Hook%"
 if %winbuild% GEQ 9600 (
-  for %%# in (NoGenTicket,NoAcquireGT) do reg delete "HKLM\SOFTWARE\Policies\Microsoft\Windows NT\CurrentVersion\Software Protection Platform" /v %%# /f %_Nul3%
-  WMIC /NAMESPACE:\\root\Microsoft\Windows\Defender PATH MSFT_MpPreference call Remove ExclusionPath=%_Hook% Force=True %_Nul3% && set "RemExc= and Windows Defender exclusions"
+  for %%# in (NoGenTicket,NoAcquireGT) do reg delete "HKLM\SOFTWARE\Policies\Microsoft\Windows NT\CurrentVersion\Software Protection Platform" /v %%# /f %_Null%
+  %_qr% %_Nul3% && set "RemExc= and Windows Defender exclusions"
 )
 if %_verb% EQU 1 (
 if %Silent% EQU 0 if %_Debug% EQU 0 (
@@ -1373,7 +1608,7 @@ goto :eof
 if %_verb% EQU 1 (
 echo [%IFEO%\%1]
 )
-reg delete "%IFEO%\%1" /f /v Debugger %_Nul3%
+reg delete "%IFEO%\%1" /f /v Debugger %_Null%
 reg add "%IFEO%\%1" /f /v VerifierDlls /t REG_SZ /d "SppExtComObjHook.dll" %_Nul3%
 reg add "%IFEO%\%1" /f /v VerifierDebug /t REG_DWORD /d 0x00000000 %_Nul3%
 reg add "%IFEO%\%1" /f /v VerifierFlags /t REG_DWORD /d 0x80000000 %_Nul3%
@@ -1391,15 +1626,15 @@ if %_verb% EQU 1 (
 echo [%IFEO%\%1]
 )
 if /i %1 NEQ osppsvc.exe (
-reg delete "%IFEO%\%1" /f %_Nul3%
+reg delete "%IFEO%\%1" /f %_Null%
 goto :eof
 )
 if %OsppHook% EQU 0 (
-reg delete "%IFEO%\%1" /f %_Nul3%
+reg delete "%IFEO%\%1" /f %_Null%
 )
-if %OsppHook% NEQ 0 for %%A in (Debugger,VerifierDlls,VerifierDebug,VerifierFlags,GlobalFlag,KMS_Emulation,KMS_ActivationInterval,KMS_RenewalInterval,Office2010,Office2013,Office2016,Office2019) do reg delete "%IFEO%\%1" /v %%A /f %_Nul3%
+if %OsppHook% NEQ 0 for %%A in (Debugger,VerifierDlls,VerifierDebug,VerifierFlags,GlobalFlag,KMS_Emulation,KMS_ActivationInterval,KMS_RenewalInterval,Office2010,Office2013,Office2016,Office2019) do reg delete "%IFEO%\%1" /v %%A /f %_Null%
 reg add "HKLM\%OPPk%" /f /v KeyManagementServiceName /t REG_SZ /d "0.0.0.0" %_Nul3%
-reg delete "HKLM\%OPPk%" /f /v KeyManagementServicePort %_Nul3%
+reg add "HKLM\%OPPk%" /f /v KeyManagementServicePort /t REG_SZ /d "1688" %_Nul3%
 goto :eof
 
 :UpdateIFEOEntry
@@ -1472,9 +1707,11 @@ echo Verify that Antivirus protection is OFF or the registry path is excluded.
 
 set E_WMI=0
 for /f "skip=2 tokens=2*" %%a in ('reg query HKLM\SYSTEM\CurrentControlSet\Services\WinMgmt /v Start %_Nul6%') do if /i %%b equ 0x4 set E_WMI=1
-wmic /locale:ms_409 computersystem get Name /value %_Nul2% | find /i "Name" %_Nul1%
+set "_qr=%_zz1% Win32_ComputerSystem %_zz3% CreationClassName %_zz4%"
+%_qr% %_Nul2% | find /i "computersystem" %_Nul1%
 if %errorlevel% NEQ 0 set E_WMI=1
-wmic /locale:ms_409 path SoftwareLicensingService get Version /value %_Nul2% | find /i "Version" %_Nul1%
+set "_qr=%_zz1% SoftwareLicensingService %_zz3% Version %_zz4%"
+%_qr% %_Nul2% | find /i "." %_Nul1%
 if %errorlevel% NEQ 0 set E_WMI=1
 if %E_WMI% EQU 1 (
 echo.
@@ -1489,30 +1726,78 @@ echo Software Protection [sppsvc]
 goto :eof
 
 :cREG
-reg delete "HKLM\%SPPk%\%_wApp%" /f
-reg delete "HKLM\%SPPk%\%_oApp%" /f
+reg add "HKLM\%SPPk%" /f /v KeyManagementServiceName /t REG_SZ /d "0.0.0.0"
+reg add "HKLM\%SPPk%" /f /v KeyManagementServicePort /t REG_SZ /d "1688"
 reg delete "HKLM\%SPPk%" /f /v DisableDnsPublishing
 reg delete "HKLM\%SPPk%" /f /v DisableKeyManagementServiceHostCaching
-reg add "HKLM\%SPPk%" /f /v KeyManagementServiceName /t REG_SZ /d "0.0.0.0"
-reg delete "HKLM\%SPPk%" /f /v KeyManagementServicePort
+reg delete "HKLM\%SPPk%\%_wApp%" /f
+if %winbuild% GEQ 9200 (
+if not %xOS%==x86 (
+reg add "HKLM\%SPPk%" /f /v KeyManagementServiceName /t REG_SZ /d "0.0.0.0" /reg:32
+reg add "HKLM\%SPPk%" /f /v KeyManagementServicePort /t REG_SZ /d "1688" /reg:32
+reg delete "HKLM\%SPPk%\%_oApp%" /f /reg:32
+reg add "HKLM\%SPPk%\%_oApp%" /f /v KeyManagementServiceName /t REG_SZ /d "0.0.0.0" /reg:32
+reg add "HKLM\%SPPk%\%_oApp%" /f /v KeyManagementServicePort /t REG_SZ /d "1688" /reg:32
+)
+reg delete "HKLM\%SPPk%\%_oApp%" /f
+reg add "HKLM\%SPPk%\%_oApp%" /f /v KeyManagementServiceName /t REG_SZ /d "0.0.0.0"
+reg add "HKLM\%SPPk%\%_oApp%" /f /v KeyManagementServicePort /t REG_SZ /d "1688"
+)
+if %winbuild% GEQ 9600 (
 reg delete "HKU\S-1-5-20\%SPPk%\%_wApp%" /f
 reg delete "HKU\S-1-5-20\%SPPk%\%_oApp%" /f
-reg delete "HKLM\%OPPk%\%_oA14%" /f
-reg delete "HKLM\%OPPk%\%_oApp%" /f
-reg delete "HKLM\%OPPk%" /f /v DisableDnsPublishing
-reg delete "HKLM\%OPPk%" /f /v DisableKeyManagementServiceHostCaching
+)
+if %OsppHook% EQU 0 (
+goto :eof
+)
 reg add "HKLM\%OPPk%" /f /v KeyManagementServiceName /t REG_SZ /d "0.0.0.0"
 reg delete "HKLM\%OPPk%" /f /v KeyManagementServicePort
-if %OsppHook% EQU 0 (
-reg delete "HKLM\%OPPk%" /f
-reg delete "HKU\S-1-5-20\%OPPk%" /f
+reg delete "HKLM\%OPPk%" /f /v DisableDnsPublishing
+reg delete "HKLM\%OPPk%" /f /v DisableKeyManagementServiceHostCaching
+reg delete "HKLM\%OPPk%\%_oA14%" /f
+reg delete "HKLM\%OPPk%\%_oApp%" /f
+goto :eof
+
+:rREG
+reg delete "HKLM\%SPPk%" /f /v KeyManagementServiceName
+reg delete "HKLM\%SPPk%" /f /v KeyManagementServicePort
+reg delete "HKLM\%SPPk%" /f /v DisableDnsPublishing
+reg delete "HKLM\%SPPk%" /f /v DisableKeyManagementServiceHostCaching
+reg delete "HKLM\%SPPk%\%_wApp%" /f
+if %winbuild% GEQ 9200 (
+if not %xOS%==x86 (
+reg delete "HKLM\%SPPk%" /f /v KeyManagementServiceName /reg:32
+reg delete "HKLM\%SPPk%" /f /v KeyManagementServicePort /reg:32
+reg delete "HKLM\%SPPk%\%_oApp%" /f /reg:32
 )
+reg delete "HKLM\%SPPk%\%_oApp%" /f
+)
+if %winbuild% GEQ 9600 (
+reg delete "HKU\S-1-5-20\%SPPk%\%_wApp%" /f
+reg delete "HKU\S-1-5-20\%SPPk%\%_oApp%" /f
+)
+reg delete "HKLM\%OPPk%" /f /v KeyManagementServiceName
+reg delete "HKLM\%OPPk%" /f /v KeyManagementServicePort
+reg delete "HKLM\%OPPk%" /f /v DisableDnsPublishing
+reg delete "HKLM\%OPPk%" /f /v DisableKeyManagementServiceHostCaching
+reg delete "HKLM\%OPPk%\%_oA14%" /f
+reg delete "HKLM\%OPPk%\%_oApp%" /f
 goto :eof
 
 :cCache
 echo.
 echo Clearing KMS Cache...
-call :cREG %_Nul3%
+call :rREG %_Nul3%
+set "_C16R="
+for /f "skip=2 tokens=2*" %%a in ('"reg query HKLM\SOFTWARE\Microsoft\Office\ClickToRun /v InstallPath" %_Nul6%') do if exist "%%b\root\Licenses16\ProPlus*.xrm-ms" set "_C16R=1"
+for /f "skip=2 tokens=2*" %%a in ('"reg query HKLM\SOFTWARE\Microsoft\Office\ClickToRun /v InstallPath /reg:32" %_Nul6%') do if exist "%%b\root\Licenses16\ProPlus*.xrm-ms" set "_C16R=1"
+if %winbuild% GEQ 9200 if defined _C16R (
+echo.
+echo ## Notice ##
+echo.
+echo To make sure Office programs do not show a non-genuine banner
+echo please apply manual or auto-renewal activation, and don't uninstall afterward.
+)
 if %Unattend% NEQ 0 goto :TheEnd
 echo.&echo %line3%&echo.
 echo Press any key to continue...
@@ -1558,8 +1843,6 @@ goto :eof
 
 :CreateOEM
 cls
-set "_oem=!_work!"
-copy /y nul "!_work!\#.rw" 1>nul 2>nul && (if exist "!_work!\#.rw" del /f /q "!_work!\#.rw") || (set "_oem=!_dsk!")
 if exist "!_oem!\$OEM$\" (
 echo.&echo %line3%&echo.
 echo $OEM$ Folder already exist...
@@ -1597,6 +1880,8 @@ set "_cscript=cscript //Nologo //B"
 ) else (
 set "_cscript=cscript //Nologo"
 )
+set _LTSC=0
+set "_tag="&set "_ons= 2016"
 sc query ClickToRunSvc %_Nul3%
 set error1=%errorlevel%
 sc query OfficeSvc %_Nul3%
@@ -1656,7 +1941,9 @@ if %_Office15% EQU 0 (goto :%_fC2R%) else (goto :Reg15istry)
 if not exist "%_Integrator%" (
 if %_Office15% EQU 0 (goto :%_fC2R%) else (goto :Reg15istry)
 )
-if exist "%_LicensesPath%\Word2019VL_KMS_Client_AE*.xrm-ms" (set "_tag=2019"&set "_ons= 2019") else (set "_tag="&set "_ons= 2016")
+if exist "%_LicensesPath%\Word2019VL_KMS_Client_AE*.xrm-ms" (set "_tag=2019"&set "_ons= 2019")
+if exist "%_LicensesPath%\Word2021VL_KMS_Client_AE*.xrm-ms" (set _LTSC=1)
+if %winbuild% LSS 10240 if !_LTSC! EQU 1 (set "_tag=2021"&set "_ons= 2021")
 if %_Office15% EQU 0 goto :CheckC2R
 
 :Reg15istry
@@ -1732,12 +2019,35 @@ set _sps=OfficeSoftwareProtectionService
 set _vbsi="!_OSPP15VBS!" /inslic:
 )
 set "_wmi="
-for /f "tokens=2 delims==" %%# in ('"wmic path %_sps% get version /value" %_Nul6%') do set "_wmi=%%#"
+set "_qr=%_zz7% %_sps% %_zz3% Version %_zz8%"
+for /f "tokens=2 delims==" %%# in ('%_qr%') do set _wmi=%%#
 if "%_wmi%"=="" (
 goto :%_fC2R%
 )
+set _Identity=0
+set _vNext=0
+set sub_O365=0
+set sub_proj=0
+set sub_vis=0
+dir /b /s /a:-d "!_Local!\Microsoft\Office\Licenses\*1*" %_Nul3% && set _Identity=1
+dir /b /s /a:-d "!ProgramData!\Microsoft\Office\Licenses\*1*" %_Nul3% && set _Identity=1
+set kNext=HKCU\SOFTWARE\Microsoft\Office\16.0\Common\Licensing\LicensingNext
+if %_Identity% EQU 1 reg query %kNext% /v MigrationToV5Done %_Nul2% | find /i "0x1" %_Nul1% && set _vNext=1
+if %_vNext% EQU 1 (
+reg query %kNext% | findstr /i /r ".*retail" %_Nul2% | findstr /i /v "project visio" %_Nul2% | find /i "0x2" %_Nul1% && (set sub_O365=1)
+reg query %kNext% | findstr /i /r ".*retail" %_Nul2% | findstr /i /v "project visio" %_Nul2% | find /i "0x3" %_Nul1% && (set sub_O365=1)
+reg query %kNext% | findstr /i /r ".*volume" %_Nul2% | findstr /i /v "project visio" %_Nul2% | find /i "0x2" %_Nul1% && (set sub_O365=1)
+reg query %kNext% | findstr /i /r ".*volume" %_Nul2% | findstr /i /v "project visio" %_Nul2% | find /i "0x3" %_Nul1% && (set sub_O365=1)
+reg query %kNext% | findstr /i /r "project.*" %_Nul2% | find /i "0x2" %_Nul1% && set sub_proj=1
+reg query %kNext% | findstr /i /r "project.*" %_Nul2% | find /i "0x3" %_Nul1% && set sub_proj=1
+reg query %kNext% | findstr /i /r "visio.*" %_Nul2% | find /i "0x2" %_Nul1% && set sub_vis=1
+reg query %kNext% | findstr /i /r "visio.*" %_Nul2% | find /i "0x3" %_Nul1% && set sub_vis=1
+)
 set _Retail=0
-wmic path %_spp% where "ApplicationID='%_oApp%' AND LicenseStatus='1' AND PartialProductKey<>NULL" get Description %_Nul2% |findstr /V /R "^$" >"!_temp!\crvRetail.txt"
+set "_ocq=ApplicationID='%_oApp%' AND LicenseStatus='1' AND PartialProductKey is not NULL"
+if %WMI_VBS% EQU 0 wmic path %_spp% where (%_ocq%) get Description %_Nul2% |findstr /V /R "^$" >"!_temp!\crvRetail.txt"
+set "_qr=%_csq% %_spp% "%_ocq%" Description"
+if %WMI_VBS% NEQ 0 %_qr% %_Nul2% >"!_temp!\crvRetail.txt"
 find /i "RETAIL channel" "!_temp!\crvRetail.txt" %_Nul1% && set _Retail=1
 find /i "RETAIL(MAK) channel" "!_temp!\crvRetail.txt" %_Nul1% && set _Retail=1
 find /i "TIMEBASED_SUB channel" "!_temp!\crvRetail.txt" %_Nul1% && set _Retail=1
@@ -1760,7 +2070,7 @@ set xBit=x86
 )
 set _exeNum=4
 if %xBit%==x64 set _exeNum=5
-if %_Retail% EQU 0 if %_OMSI% EQU 0 if defined _copp (
+if %_Identity% EQU 0 if %_Retail% EQU 0 if %_OMSI% EQU 0 if defined _copp (
 pushd %_copp%
 %_Nul3% %_psc% "$d='!cd!';$f=[IO.File]::ReadAllText('!_batp!') -split ':embdbin\:.*';iex ($f[1]);Y %_exeNum%"
 %_Nul3% cleanospp.exe -Licenses
@@ -1771,19 +2081,29 @@ if %Unattend% EQU 0 title %_title%
 set _O16O365=0
 set _C16Msg=0
 set _C15Msg=0
-if %_Retail% EQU 1 wmic path %_spp% where "ApplicationID='%_oApp%' AND LicenseStatus='1' AND PartialProductKey<>NULL" get LicenseFamily %_Nul2% |findstr /V /R "^$" >"!_temp!\crvRetail.txt"
-wmic path %_spp% where "ApplicationID='%_oApp%'" get LicenseFamily %_Nul2% |findstr /V /R "^$" >"!_temp!\crvVolume.txt" 2>&1
+set "_qr=%_csq% %_spp% "%_ocq%" LicenseFamily"
+if %_Retail% EQU 1 if %WMI_VBS% EQU 0 wmic path %_spp% where (%_ocq%) get LicenseFamily %_Nul2% |findstr /V /R "^$" >"!_temp!\crvRetail.txt"
+if %_Retail% EQU 1 if %WMI_VBS% NEQ 0 %_qr% %_Nul2% >"!_temp!\crvRetail.txt"
+set "_qr=%_csq% %_spp% "ApplicationID='%_oApp%'" LicenseFamily"
+if %WMI_VBS% EQU 0 wmic path %_spp% where "ApplicationID='%_oApp%'" get LicenseFamily %_Nul2% |findstr /V /R "^$" >"!_temp!\crvVolume.txt" 2>&1
+if %WMI_VBS% NEQ 0 %_qr% %_Nul2% >"!_temp!\crvVolume.txt" 2>&1
 
 if %_Office16% EQU 0 goto :R15V
 
+set _O21Ids=ProPlus2021,ProjectPro2021,VisioPro2021,Standard2021,ProjectStd2021,VisioStd2021,Access2021,SkypeforBusiness2021
 set _O19Ids=ProPlus2019,ProjectPro2019,VisioPro2019,Standard2019,ProjectStd2019,VisioStd2019,Access2019,SkypeforBusiness2019
 set _O16Ids=ProjectPro,VisioPro,Standard,ProjectStd,VisioStd,Access,SkypeforBusiness
+set _A21Ids=Excel2021,Outlook2021,PowerPoint2021,Publisher2021,Word2021
 set _A19Ids=Excel2019,Outlook2019,PowerPoint2019,Publisher2019,Word2019
 set _A16Ids=Excel,Outlook,PowerPoint,Publisher,Word
+set _V21Ids=%_O21Ids%,%_A21Ids%
 set _V19Ids=%_O19Ids%,%_A19Ids%
 set _V16Ids=Mondo,%_O16Ids%,%_A16Ids%,OneNote
 set _R16Ids=%_V16Ids%,Professional,HomeBusiness,HomeStudent,O365ProPlus,O365Business,O365SmallBusPrem,O365HomePrem,O365EduCloud
-set _RetIds=%_V19Ids%,Professional2019,HomeBusiness2019,HomeStudent2019,%_R16Ids%
+set _RetIds=%_V21Ids%,Professional2021,HomeBusiness2021,HomeStudent2021,%_V19Ids%,Professional2019,HomeBusiness2019,HomeStudent2019,%_R16Ids%
+set _Suites=Mondo,O365ProPlus,O365Business,O365SmallBusPrem,O365HomePrem,O365EduCloud,ProPlus,Standard,Professional,HomeBusiness,HomeStudent,ProPlus2019,Standard2019,Professional2019,HomeBusiness2019,HomeStudent2019,ProPlus2021,Standard2021,Professional2021,HomeBusiness2021,HomeStudent2021
+set _PrjSKU=ProjectPro,ProjectStd,ProjectPro2019,ProjectStd2019,ProjectPro2021,ProjectStd2021
+set _VisSKU=VisioPro,VisioStd,VisioPro2019,VisioStd2019,VisioPro2021,VisioStd2021
 
 echo %_ProductIds%>"!_temp!\crvProductIds.txt"
 for %%a in (%_RetIds%,ProPlus) do (
@@ -1791,6 +2111,14 @@ set _%%a=0
 )
 for %%a in (%_RetIds%) do (
 findstr /I /C:"%%aRetail" "!_temp!\crvProductIds.txt" %_Nul1% && set _%%a=1
+)
+if !_LTSC! EQU 0 for %%a in (%_V21Ids%) do (
+set _%%a=0
+)
+if !_LTSC! EQU 1 for %%a in (%_V21Ids%) do (
+findstr /I /C:"%%aVolume" "!_temp!\crvProductIds.txt" %_Nul1% && (
+  find /i "Office21%%aVL_KMS_Client" "!_temp!\crvVolume.txt" %_Nul1% && (set _%%a=0) || (set _%%a=1)
+  )
 )
 for %%a in (%_V19Ids%) do (
 findstr /I /C:"%%aVolume" "!_temp!\crvProductIds.txt" %_Nul1% && (
@@ -1810,33 +2138,53 @@ reg query %_PRIDs%\ProPlusVolume.16 %_Nul3% && (
 )
 if %_Retail% EQU 1 for %%a in (%_RetIds%) do (
 findstr /I /C:"%%aRetail" "!_temp!\crvProductIds.txt" %_Nul1% && (
-  find /i "Office16%%aR_Retail" "!_temp!\crvRetail.txt" %_Nul1% && set _%%a=0
-  find /i "Office16%%aR_OEM" "!_temp!\crvRetail.txt" %_Nul1% && set _%%a=0
-  find /i "Office16%%aR_Sub" "!_temp!\crvRetail.txt" %_Nul1% && set _%%a=0
-  find /i "Office16%%aR_PIN" "!_temp!\crvRetail.txt" %_Nul1% && set _%%a=0
-  find /i "Office16%%aE5R_" "!_temp!\crvRetail.txt" %_Nul1% && set _%%a=0
-  find /i "Office16%%aEDUR_" "!_temp!\crvRetail.txt" %_Nul1% && set _%%a=0
-  find /i "Office16%%aMSDNR_" "!_temp!\crvRetail.txt" %_Nul1% && set _%%a=0
-  find /i "Office16%%aO365R_" "!_temp!\crvRetail.txt" %_Nul1% && set _%%a=0
-  find /i "Office16%%aCO365R_" "!_temp!\crvRetail.txt" %_Nul1% && set _%%a=0
-  find /i "Office16%%aVL_MAK" "!_temp!\crvRetail.txt" %_Nul1% && set _%%a=0
-  find /i "Office16%%aXC2RVL_MAKC2R" "!_temp!\crvRetail.txt" %_Nul1% && set _%%a=0
-  find /i "Office19%%aR_Retail" "!_temp!\crvRetail.txt" %_Nul1% && set _%%a=0
-  find /i "Office19%%aR_OEM" "!_temp!\crvRetail.txt" %_Nul1% && set _%%a=0
-  find /i "Office19%%aMSDNR_" "!_temp!\crvRetail.txt" %_Nul1% && set _%%a=0
-  find /i "Office19%%aVL_MAK" "!_temp!\crvRetail.txt" %_Nul1% && set _%%a=0
+  find /i "Office16%%aR_Retail" "!_temp!\crvRetail.txt" %_Nul1% && (set _%%a=0 & set aC2R16=1)
+  find /i "Office16%%aR_OEM" "!_temp!\crvRetail.txt" %_Nul1% && (set _%%a=0 & set aC2R16=1)
+  find /i "Office16%%aR_Sub" "!_temp!\crvRetail.txt" %_Nul1% && (set _%%a=0 & set aC2R16=1)
+  find /i "Office16%%aR_PIN" "!_temp!\crvRetail.txt" %_Nul1% && (set _%%a=0 & set aC2R16=1)
+  find /i "Office16%%aE5R_" "!_temp!\crvRetail.txt" %_Nul1% && (set _%%a=0 & set aC2R16=1)
+  find /i "Office16%%aEDUR_" "!_temp!\crvRetail.txt" %_Nul1% && (set _%%a=0 & set aC2R16=1)
+  find /i "Office16%%aMSDNR_" "!_temp!\crvRetail.txt" %_Nul1% && (set _%%a=0 & set aC2R16=1)
+  find /i "Office16%%aO365R_" "!_temp!\crvRetail.txt" %_Nul1% && (set _%%a=0 & set aC2R16=1)
+  find /i "Office16%%aCO365R_" "!_temp!\crvRetail.txt" %_Nul1% && (set _%%a=0 & set aC2R16=1)
+  find /i "Office16%%aVL_MAK" "!_temp!\crvRetail.txt" %_Nul1% && (set _%%a=0 & set aC2R16=1)
+  find /i "Office16%%aXC2RVL_MAKC2R" "!_temp!\crvRetail.txt" %_Nul1% && (set _%%a=0 & set aC2R16=1)
+  find /i "Office19%%aR_Retail" "!_temp!\crvRetail.txt" %_Nul1% && (set _%%a=0 & set aC2R19=1)
+  find /i "Office19%%aR_OEM" "!_temp!\crvRetail.txt" %_Nul1% && (set _%%a=0 & set aC2R19=1)
+  find /i "Office19%%aMSDNR_" "!_temp!\crvRetail.txt" %_Nul1% && (set _%%a=0 & set aC2R19=1)
+  find /i "Office19%%aVL_MAK" "!_temp!\crvRetail.txt" %_Nul1% && (set _%%a=0 & set aC2R19=1)
+  find /i "Office21%%aR_Retail" "!_temp!\crvRetail.txt" %_Nul1% && (set _%%a=0 & set aC2R21=1)
+  find /i "Office21%%aR_OEM" "!_temp!\crvRetail.txt" %_Nul1% && (set _%%a=0 & set aC2R21=1)
+  find /i "Office21%%aMSDNR_" "!_temp!\crvRetail.txt" %_Nul1% && (set _%%a=0 & set aC2R21=1)
+  find /i "Office21%%aVL_MAK" "!_temp!\crvRetail.txt" %_Nul1% && (set _%%a=0 & set aC2R21=1)
   )
 )
 if %_Retail% EQU 1 reg query %_PRIDs%\ProPlusRetail.16 %_Nul3% && (
-  find /i "Office16ProPlusR_Retail" "!_temp!\crvRetail.txt" %_Nul1% && set _ProPlus=0
-  find /i "Office16ProPlusR_OEM" "!_temp!\crvRetail.txt" %_Nul1% && set _ProPlus=0
-  find /i "Office16ProPlusMSDNR_" "!_temp!\crvRetail.txt" %_Nul1% && set _ProPlus=0
-  find /i "Office16ProPlusVL_MAK" "!_temp!\crvRetail.txt" %_Nul1% && set _ProPlus=0
+  find /i "Office16ProPlusR_Retail" "!_temp!\crvRetail.txt" %_Nul1% && (set _ProPlus=0 & set aC2R16=1)
+  find /i "Office16ProPlusR_OEM" "!_temp!\crvRetail.txt" %_Nul1% && (set _ProPlus=0 & set aC2R16=1)
+  find /i "Office16ProPlusMSDNR_" "!_temp!\crvRetail.txt" %_Nul1% && (set _ProPlus=0 & set aC2R16=1)
+  find /i "Office16ProPlusVL_MAK" "!_temp!\crvRetail.txt" %_Nul1% && (set _ProPlus=0 & set aC2R16=1)
 )
+set "_qr=%_zz1% %_spp% %_zz2% "ApplicationID='%_oApp%' AND LicenseFamily like 'Office16O365%%'" %_zz3% LicenseFamily %_zz4%"
 find /i "Office16MondoVL_KMS_Client" "!_temp!\crvVolume.txt" %_Nul1% && (
-wmic path %spp% where 'ApplicationID="%_oApp%" AND LicenseFamily like "Office16O365%%"' get LicenseFamily /value %_Nul2% | find /i "O365" %_Nul1% && (
+%_qr% %_Nul2% | find /i "O365" %_Nul1% && (
   for %%a in (O365ProPlus,O365Business,O365SmallBusPrem,O365HomePrem,O365EduCloud) do set _%%a=0
   )
+)
+if %sub_O365% EQU 1 (
+  for %%a in (%_Suites%) do set _%%a=0
+echo.
+echo Microsoft 365 product is activated with a subscription.
+)
+if %sub_proj% EQU 1 (
+  for %%a in (%_PrjSKU%) do set _%%a=0
+echo.
+echo Microsoft Project is activated with a subscription.
+)
+if %sub_vis% EQU 1 (
+  for %%a in (%_VisSKU%) do set _%%a=0
+echo.
+echo Microsoft Visio is activated with a subscription.
 )
 
 for %%a in (%_RetIds%,ProPlus) do if !_%%a! EQU 1 (
@@ -1886,87 +2234,130 @@ echo Mondo 2016 Suite
 call :InsLic O365ProPlus DRNV7-VGMM2-B3G9T-4BF84-VMFTK
 if %_Office15% EQU 1 (goto :R15V) else (goto :GVLKC2R)
 )
-if !_ProPlus2019! EQU 1 if !_O365ProPlus! EQU 0 (
-echo ProPlus 2019 Suite
+if !_ProPlus2021! EQU 1 if !_O365ProPlus! EQU 0 (
+echo ProPlus 2021 Suite
+call :InsLic ProPlus2021
+)
+if !_ProPlus2019! EQU 1 if !_O365ProPlus! EQU 0 if !_ProPlus2021! EQU 0 (
+echo ProPlus 2019 Suite -^> ProPlus%_ons% Licenses
 call :InsLic ProPlus%_tag%
 )
-if !_ProPlus! EQU 1 if !_O365ProPlus! EQU 0 if !_ProPlus2019! EQU 0 (
+if !_ProPlus! EQU 1 if !_O365ProPlus! EQU 0 if !_ProPlus2021! EQU 0 if !_ProPlus2019! EQU 0 (
 echo ProPlus 2016 Suite -^> ProPlus%_ons% Licenses
 call :InsLic ProPlus%_tag%
 )
-if !_Professional2019! EQU 1 if !_O365ProPlus! EQU 0 if !_ProPlus2019! EQU 0 if !_ProPlus! EQU 0 (
+if !_Professional2021! EQU 1 if !_O365ProPlus! EQU 0 if !_ProPlus2021! EQU 0 if !_ProPlus2019! EQU 0 if !_ProPlus! EQU 0 (
+echo Professional 2021 Suite -^> ProPlus 2021 Licenses
+call :InsLic ProPlus2021
+)
+if !_Professional2019! EQU 1 if !_O365ProPlus! EQU 0 if !_ProPlus2021! EQU 0 if !_ProPlus2019! EQU 0 if !_ProPlus! EQU 0 if !_Professional2021! EQU 0 (
 echo Professional 2019 Suite -^> ProPlus%_ons% Licenses
 call :InsLic ProPlus%_tag%
 )
-if !_Professional! EQU 1 if !_O365ProPlus! EQU 0 if !_ProPlus2019! EQU 0 if !_ProPlus! EQU 0 if !_Professional2019! EQU 0 (
+if !_Professional! EQU 1 if !_O365ProPlus! EQU 0 if !_ProPlus2021! EQU 0 if !_ProPlus2019! EQU 0 if !_ProPlus! EQU 0 if !_Professional2021! EQU 0 if !_Professional2019! EQU 0 (
 echo Professional 2016 Suite -^> ProPlus%_ons% Licenses
 call :InsLic ProPlus%_tag%
 )
-if !_Standard2019! EQU 1 if !_O365ProPlus! EQU 0 if !_ProPlus2019! EQU 0 if !_ProPlus! EQU 0 if !_Professional2019! EQU 0 if !_Professional! EQU 0 (
-echo Standard 2019 Suite
-call :InsLic Standard2019
+if !_Standard2021! EQU 1 if !_O365ProPlus! EQU 0 if !_ProPlus2021! EQU 0 if !_ProPlus2019! EQU 0 if !_ProPlus! EQU 0 if !_Professional2021! EQU 0 if !_Professional2019! EQU 0 if !_Professional! EQU 0 (
+echo Standard 2021 Suite
+call :InsLic Standard2021
 )
-if !_Standard! EQU 1 if !_O365ProPlus! EQU 0 if !_ProPlus2019! EQU 0 if !_ProPlus! EQU 0 if !_Professional2019! EQU 0 if !_Professional! EQU 0 if !_Standard2019! EQU 0 (
+if !_Standard2019! EQU 1 if !_O365ProPlus! EQU 0 if !_ProPlus2021! EQU 0 if !_ProPlus2019! EQU 0 if !_ProPlus! EQU 0 if !_Professional2021! EQU 0 if !_Professional2019! EQU 0 if !_Professional! EQU 0 if !_Standard2021! EQU 0 (
+echo Standard 2019 Suite -^> Standard%_ons% Licenses
+call :InsLic Standard%_tag%
+)
+if !_Standard! EQU 1 if !_O365ProPlus! EQU 0 if !_ProPlus2021! EQU 0 if !_ProPlus2019! EQU 0 if !_ProPlus! EQU 0 if !_Professional2021! EQU 0 if !_Professional2019! EQU 0 if !_Professional! EQU 0 if !_Standard2021! EQU 0 if !_Standard2019! EQU 0 (
 echo Standard 2016 Suite -^> Standard%_ons% Licenses
 call :InsLic Standard%_tag%
 )
+for %%a in (ProjectPro,VisioPro,ProjectStd,VisioStd) do if !_%%a2021! EQU 1 (
+  echo %%a 2021 SKU
+  call :InsLic %%a2021
+)
 for %%a in (ProjectPro,VisioPro,ProjectStd,VisioStd) do if !_%%a2019! EQU 1 (
-echo %%a 2019 SKU
-if defined _tag (call :InsLic %%a2019) else (call :InsLic %%a)
+if !_%%a2021! EQU 0 (
+  echo %%a 2019 SKU -^> %%a%_ons% Licenses
+  call :InsLic %%a%_tag%
+  )
 )
 for %%a in (ProjectPro,VisioPro,ProjectStd,VisioStd) do if !_%%a! EQU 1 (
-if !_%%a2019! EQU 0 (
+if !_%%a2021! EQU 0 if !_%%a2019! EQU 0 (
   echo %%a 2016 SKU -^> %%a%_ons% Licenses
   call :InsLic %%a%_tag%
   )
 )
-for %%a in (HomeBusiness2019,HomeStudent2019) do if !_%%a! EQU 1 (
-if !_O365ProPlus! EQU 0 if !_ProPlus2019! EQU 0 if !_ProPlus! EQU 0 if !_Professional2019! EQU 0 if !_Professional! EQU 0 if !_Standard2019! EQU 0 if !_Standard! EQU 0 (
+for %%a in (HomeBusiness,HomeStudent) do if !_%%a2021! EQU 1 (
+if !_O365ProPlus! EQU 0 if !_ProPlus2021! EQU 0 if !_ProPlus2019! EQU 0 if !_ProPlus! EQU 0 if !_Professional2021! EQU 0 if !_Professional2019! EQU 0 if !_Professional! EQU 0 if !_Standard2021! EQU 0 if !_Standard2019! EQU 0 if !_Standard! EQU 0 (
+  set _Standard2021=1
+  echo %%a 2021 Suite -^> Standard 2021 Licenses
+  call :InsLic Standard2021
+  )
+)
+for %%a in (HomeBusiness,HomeStudent) do if !_%%a2019! EQU 1 (
+if !_O365ProPlus! EQU 0 if !_ProPlus2021! EQU 0 if !_ProPlus2019! EQU 0 if !_ProPlus! EQU 0 if !_Professional2021! EQU 0 if !_Professional2019! EQU 0 if !_Professional! EQU 0 if !_Standard2021! EQU 0 if !_Standard2019! EQU 0 if !_Standard! EQU 0 if !_%%a2021! EQU 0 (
   set _Standard2019=1
-  echo %%a Suite -^> Standard 2019 Licenses
-  call :InsLic Standard2019
+  echo %%a 2019 Suite -^> Standard%_ons% Licenses
+  call :InsLic Standard%_tag%
   )
 )
 for %%a in (HomeBusiness,HomeStudent) do if !_%%a! EQU 1 (
-if !_O365ProPlus! EQU 0 if !_ProPlus2019! EQU 0 if !_ProPlus! EQU 0 if !_Professional2019! EQU 0 if !_Professional! EQU 0 if !_Standard2019! EQU 0 if !_Standard! EQU 0 if !_%%a2019! EQU 0 (
-  set _Standard2019=1
+if !_O365ProPlus! EQU 0 if !_ProPlus2021! EQU 0 if !_ProPlus2019! EQU 0 if !_ProPlus! EQU 0 if !_Professional2021! EQU 0 if !_Professional2019! EQU 0 if !_Professional! EQU 0 if !_Standard2021! EQU 0 if !_Standard2019! EQU 0 if !_Standard! EQU 0 if !_%%a2021! EQU 0 if !_%%a2019! EQU 0 (
+  set _Standard=1
   echo %%a 2016 Suite -^> Standard%_ons% Licenses
   call :InsLic Standard%_tag%
   )
 )
-for %%a in (%_A19Ids%,OneNote) do if !_%%a! EQU 1 (
-if !_O365ProPlus! EQU 0 if !_ProPlus2019! EQU 0 if !_ProPlus! EQU 0 if !_Professional2019! EQU 0 if !_Professional! EQU 0 if !_Standard2019! EQU 0 if !_Standard! EQU 0 (
+for %%a in (%_A21Ids%,OneNote) do if !_%%a! EQU 1 (
+if !_O365ProPlus! EQU 0 if !_ProPlus2021! EQU 0 if !_ProPlus2019! EQU 0 if !_ProPlus! EQU 0 if !_Professional2021! EQU 0 if !_Professional2019! EQU 0 if !_Professional! EQU 0 if !_Standard2021! EQU 0 if !_Standard2019! EQU 0 if !_Standard! EQU 0 (
   echo %%a App
   call :InsLic %%a
+  )
+)
+for %%a in (%_A16Ids%) do if !_%%a2019! EQU 1 (
+if !_O365ProPlus! EQU 0 if !_ProPlus2021! EQU 0 if !_ProPlus2019! EQU 0 if !_ProPlus! EQU 0 if !_Professional2021! EQU 0 if !_Professional2019! EQU 0 if !_Professional! EQU 0 if !_Standard2021! EQU 0 if !_Standard2019! EQU 0 if !_Standard! EQU 0 if !_%%a2021! EQU 0 (
+  echo %%a 2019 App -^> %%a%_ons% Licenses
+  call :InsLic %%a%_tag%
   )
 )
 for %%a in (%_A16Ids%) do if !_%%a! EQU 1 (
-if !_O365ProPlus! EQU 0 if !_ProPlus2019! EQU 0 if !_ProPlus! EQU 0 if !_Professional2019! EQU 0 if !_Professional! EQU 0 if !_Standard2019! EQU 0 if !_Standard! EQU 0 if !_%%a2019! EQU 0 (
-  echo %%a 2016 App
+if !_O365ProPlus! EQU 0 if !_ProPlus2021! EQU 0 if !_ProPlus2019! EQU 0 if !_ProPlus! EQU 0 if !_Professional2021! EQU 0 if !_Professional2019! EQU 0 if !_Professional! EQU 0 if !_Standard2021! EQU 0 if !_Standard2019! EQU 0 if !_Standard! EQU 0 if !_%%a2021! EQU 0 if !_%%a2019! EQU 0 (
+  echo %%a 2016 App -^> %%a%_ons% Licenses
   call :InsLic %%a%_tag%
   )
 )
-for %%a in (Access2019) do if !_%%a! EQU 1 (
-if !_O365ProPlus! EQU 0 if !_ProPlus2019! EQU 0 if !_ProPlus! EQU 0 if !_Professional2019! EQU 0 if !_Professional! EQU 0 (
-  echo %%a App
-  call :InsLic %%a
+for %%a in (Access) do if !_%%a2021! EQU 1 (
+if !_O365ProPlus! EQU 0 if !_ProPlus2021! EQU 0 if !_ProPlus2019! EQU 0 if !_ProPlus! EQU 0 if !_Professional2021! EQU 0 if !_Professional2019! EQU 0 if !_Professional! EQU 0 (
+  echo %%a 2021 App
+  call :InsLic %%a2021
+  )
+)
+for %%a in (Access) do if !_%%a2019! EQU 1 (
+if !_O365ProPlus! EQU 0 if !_ProPlus2021! EQU 0 if !_ProPlus2019! EQU 0 if !_ProPlus! EQU 0 if !_Professional2021! EQU 0 if !_Professional2019! EQU 0 if !_Professional! EQU 0 if !_%%a2021! EQU 0 (
+  echo %%a 2019 App -^> %%a%_ons% Licenses
+  call :InsLic %%a%_tag%
   )
 )
 for %%a in (Access) do if !_%%a! EQU 1 (
-if !_O365ProPlus! EQU 0 if !_ProPlus2019! EQU 0 if !_ProPlus! EQU 0 if !_Professional2019! EQU 0 if !_Professional! EQU 0 if !_%%a2019! EQU 0 (
-  echo %%a 2016 App
+if !_O365ProPlus! EQU 0 if !_ProPlus2021! EQU 0 if !_ProPlus2019! EQU 0 if !_ProPlus! EQU 0 if !_Professional2021! EQU 0 if !_Professional2019! EQU 0 if !_Professional! EQU 0 if !_%%a2021! EQU 0 if !_%%a2019! EQU 0 (
+  echo %%a 2016 App -^> %%a%_ons% Licenses
   call :InsLic %%a%_tag%
   )
 )
-for %%a in (SkypeforBusiness2019) do if !_%%a! EQU 1 (
-if !_O365ProPlus! EQU 0 if !_ProPlus2019! EQU 0 if !_ProPlus! EQU 0 (
-  echo %%a App
-  call :InsLic %%a
+for %%a in (SkypeforBusiness) do if !_%%a2021! EQU 1 (
+if !_O365ProPlus! EQU 0 if !_ProPlus2021! EQU 0 if !_ProPlus2019! EQU 0 if !_ProPlus! EQU 0 (
+  echo %%a 2021 App
+  call :InsLic %%a2021
+  )
+)
+for %%a in (SkypeforBusiness) do if !_%%a2019! EQU 1 (
+if !_O365ProPlus! EQU 0 if !_ProPlus2021! EQU 0 if !_ProPlus2019! EQU 0 if !_ProPlus! EQU 0 if !_%%a2021! EQU 0 (
+  echo %%a 2019 App -^> %%a%_ons% Licenses
+  call :InsLic %%a%_tag%
   )
 )
 for %%a in (SkypeforBusiness) do if !_%%a! EQU 1 (
-if !_O365ProPlus! EQU 0 if !_ProPlus2019! EQU 0 if !_ProPlus! EQU 0 if !_%%a2019! EQU 0 (
-  echo %%a 2016 App
+if !_O365ProPlus! EQU 0 if !_ProPlus2021! EQU 0 if !_ProPlus2019! EQU 0 if !_ProPlus! EQU 0 if !_%%a2021! EQU 0 if !_%%a2019! EQU 0 (
+  echo %%a 2016 App -^> %%a%_ons% Licenses
   call :InsLic %%a%_tag%
   )
 )
@@ -2003,24 +2394,25 @@ reg query %_PR15IDs%\Active\ProPlusVolume\x-none %_Nul3% && (
 )
 if %_Retail% EQU 1 for %%a in (%_R15Ids%) do (
 findstr /I /C:"%%aRetail" "!_temp!\crvProduct15s.txt" %_Nul1% && (
-  find /i "Office%%aR_Retail" "!_temp!\crvRetail.txt" %_Nul1% && set _%%a=0
-  find /i "Office%%aR_OEM" "!_temp!\crvRetail.txt" %_Nul1% && set _%%a=0
-  find /i "Office%%aR_Sub" "!_temp!\crvRetail.txt" %_Nul1% && set _%%a=0
-  find /i "Office%%aR_PIN" "!_temp!\crvRetail.txt" %_Nul1% && set _%%a=0
-  find /i "Office%%aMSDNR_" "!_temp!\crvRetail.txt" %_Nul1% && set _%%a=0
-  find /i "Office%%aO365R_" "!_temp!\crvRetail.txt" %_Nul1% && set _%%a=0
-  find /i "Office%%aCO365R_" "!_temp!\crvRetail.txt" %_Nul1% && set _%%a=0
-  find /i "Office%%aVL_MAK" "!_temp!\crvRetail.txt" %_Nul1% && set _%%a=0
+  find /i "Office%%aR_Retail" "!_temp!\crvRetail.txt" %_Nul1% && (set _%%a=0 & set aC2R15=1)
+  find /i "Office%%aR_OEM" "!_temp!\crvRetail.txt" %_Nul1% && (set _%%a=0 & set aC2R15=1)
+  find /i "Office%%aR_Sub" "!_temp!\crvRetail.txt" %_Nul1% && (set _%%a=0 & set aC2R15=1)
+  find /i "Office%%aR_PIN" "!_temp!\crvRetail.txt" %_Nul1% && (set _%%a=0 & set aC2R15=1)
+  find /i "Office%%aMSDNR_" "!_temp!\crvRetail.txt" %_Nul1% && (set _%%a=0 & set aC2R15=1)
+  find /i "Office%%aO365R_" "!_temp!\crvRetail.txt" %_Nul1% && (set _%%a=0 & set aC2R15=1)
+  find /i "Office%%aCO365R_" "!_temp!\crvRetail.txt" %_Nul1% && (set _%%a=0 & set aC2R15=1)
+  find /i "Office%%aVL_MAK" "!_temp!\crvRetail.txt" %_Nul1% && (set _%%a=0 & set aC2R15=1)
   )
 )
 if %_Retail% EQU 1 reg query %_PR15IDs%\Active\ProPlusRetail\x-none %_Nul3% && (
-  find /i "OfficeProPlusR_Retail" "!_temp!\crvRetail.txt" %_Nul1% && set _ProPlus=0
-  find /i "OfficeProPlusR_OEM" "!_temp!\crvRetail.txt" %_Nul1% && set _ProPlus=0
-  find /i "OfficeProPlusMSDNR_" "!_temp!\crvRetail.txt" %_Nul1% && set _ProPlus=0
-  find /i "OfficeProPlusVL_MAK" "!_temp!\crvRetail.txt" %_Nul1% && set _ProPlus=0
+  find /i "OfficeProPlusR_Retail" "!_temp!\crvRetail.txt" %_Nul1% && (set _ProPlus=0 & set aC2R15=1)
+  find /i "OfficeProPlusR_OEM" "!_temp!\crvRetail.txt" %_Nul1% && (set _ProPlus=0 & set aC2R15=1)
+  find /i "OfficeProPlusMSDNR_" "!_temp!\crvRetail.txt" %_Nul1% && (set _ProPlus=0 & set aC2R15=1)
+  find /i "OfficeProPlusVL_MAK" "!_temp!\crvRetail.txt" %_Nul1% && (set _ProPlus=0 & set aC2R15=1)
 )
+set "_qr=%_zz1% %_spp% %_zz2% "ApplicationID='%_oApp%' AND LicenseFamily like 'OfficeO365%%'" %_zz3% LicenseFamily %_zz4%"
 find /i "OfficeMondoVL_KMS_Client" "!_temp!\crvVolume.txt" %_Nul1% && (
-wmic path %spp% where 'ApplicationID="%_oApp%" AND LicenseFamily like "OfficeO365%%"' get LicenseFamily /value %_Nul2% | find /i "O365" %_Nul1% && (
+%_qr% %_Nul2% | find /i "O365" %_Nul1% && (
   for %%a in (O365ProPlus,O365Business,O365SmallBusPrem,O365HomePrem) do set _%%a=0
   )
 )
@@ -2142,7 +2534,9 @@ reg delete %_OSPP15Ready% /f /v %_ID%.OSPPReady %_Nul3%
 for %%# in ("!_Licenses15Path!\%_patt%*.xrm-ms") do (
 %_cscript% %_vbsi%"!_Licenses15Path!\%%~nx#"
 )
-if defined _pkey wmic path %_sps% where version='%_wmi%' call InstallProductKey ProductKey="%_pkey%" %_Nul3%
+set "_qr=wmic path %_sps% where Version='%_wmi%' call InstallProductKey ProductKey="%_pkey%""
+if %WMI_VBS% NEQ 0 set "_qr=%_csp% %_sps% "%_pkey%""
+if defined _pkey %_qr% %_Nul3%
 reg add %_OSPP15Ready% /f /v %_ID%.OSPPReady /t %_OSPP15ReadT% /d 1 %_Nul1%
 reg query %_Con15fig% %_Nul2% | findstr /I "%_ID%" %_Nul1%
 if %errorlevel% NEQ 0 (
@@ -2157,7 +2551,9 @@ for %%a in (%_RetIds%,ProPlus) do set "_%%a="
 if %_Office15% EQU 1 (
 for %%a in (%_R15Ids%,ProPlus) do set "_%%a="
 )
-if %winbuild% GEQ 9200 wmic path %_sps% where version='%_wmi%' call RefreshLicenseStatus %_Nul3%
+set "_qr=wmic path %_sps% where version='%_wmi%' call RefreshLicenseStatus"
+if %WMI_VBS% NEQ 0 set "_qr=%_csm% "%_sps%.Version='%_wmi%'" RefreshLicenseStatus"
+if %winbuild% GEQ 9200 %_qr% %_Nul3%
 if exist "%SysPath%\spp\store_test\2.0\tokens.dat" if defined _copp (
 %_cscript% %_SLMGR% /rilc
 )
@@ -2168,7 +2564,7 @@ cls
 mode con cols=100 lines=32
 %_Nul3% %_psc% "&%_buf%"
 title Check Activation Status [vbs]
-setlocal EnableDelayedExpansion
+setlocal
 set _sO16vbs=0
 set _sO15vbs=0
 if exist "%ProgramFiles%\Microsoft Office\Office15\ospp.vbs" (
@@ -2181,11 +2577,13 @@ if exist "%ProgramFiles%\Microsoft Office\Office15\ospp.vbs" (
 echo %line2%
 echo ***                   Windows Status                     ***
 echo %line2%
-copy /y %Windir%\System32\slmgr.vbs "!_temp!\slmgr.vbs" >nul 2>&1
+pushd "!_utemp!"
+copy /y %SystemRoot%\System32\slmgr.vbs . >nul 2>&1
 net start sppsvc /y >nul 2>&1
-cscript //nologo "!_temp!\slmgr.vbs" /dli || (echo Error executing slmgr.vbs&del /f /q "!_temp!\slmgr.vbs"&goto :casVend)
-cscript //nologo "!_temp!\slmgr.vbs" /xpr
-del /f /q "!_temp!\slmgr.vbs" >nul 2>&1
+cscript //nologo slmgr.vbs /dli || (echo Error executing slmgr.vbs&del /f /q slmgr.vbs&popd&goto :casVend)
+cscript //nologo slmgr.vbs /xpr
+del /f /q slmgr.vbs >nul 2>&1
+popd
 echo %line3%
 
 :casVo16
@@ -2346,7 +2744,7 @@ goto :eof
 cls
 mode con cols=100 lines=32
 %_Nul3% %_psc% "&%_buf%"
-title Check Activation Status [wmic]
+title Check Activation Status [wmi]
 setlocal
 set wspp=SoftwareLicensingProduct
 set wsps=SoftwareLicensingService
@@ -2358,7 +2756,15 @@ set o15App=0ff1ce15-a989-479d-af46-f275c6370663
 for %%# in (spp_get,ospp_get,cW1nd0ws,sppw,c0ff1ce15,sppo,osppsvc,ospp14,ospp15) do set "%%#="
 set "spp_get=Description, DiscoveredKeyManagementServiceMachineName, DiscoveredKeyManagementServiceMachinePort, EvaluationEndDate, GracePeriodRemaining, ID, KeyManagementServiceMachine, KeyManagementServicePort, KeyManagementServiceProductKeyID, LicenseStatus, LicenseStatusReason, Name, PartialProductKey, ProductKeyID, VLActivationInterval, VLRenewalInterval"
 set "ospp_get=%spp_get%"
-if %winbuild% GEQ 9200 set "spp_get=%spp_get%, DiscoveredKeyManagementServiceMachineIpAddress, KeyManagementServiceLookupDomain, ProductKeyChannel, VLActivationTypeEnabled"
+if %winbuild% GEQ 9200 set "spp_get=%spp_get%, KeyManagementServiceLookupDomain, VLActivationTypeEnabled"
+if %winbuild% GEQ 9600 set "spp_get=%spp_get%, DiscoveredKeyManagementServiceMachineIpAddress, ProductKeyChannel"
+set _Identity=0
+dir /b /s /a:-d "!_Local!\Microsoft\Office\Licenses\*1*" 1>nul 2>nul && set _Identity=1
+dir /b /s /a:-d "!ProgramData!\Microsoft\Office\Licenses\*1*" 1>nul 2>nul && set _Identity=1
+if %winbuild% LSS 9200 if not exist "%SystemRoot%\servicing\Packages\Microsoft-Windows-PowerShell-WTR-Package~*.mum" set _Identity=0
+set _pwrsh=1
+if not exist "%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe" set _pwrsh=0
+
 set OsppHook=1
 sc query osppsvc >nul 2>&1
 if %errorlevel% EQU 1060 set OsppHook=0
@@ -2381,7 +2787,8 @@ echo Error: product key not found.
 goto :casWcon
 )
 set winID=1
-for /f "tokens=2 delims==" %%# in ('"wmic path %wspp% where (ApplicationID='%winApp%' and PartialProductKey is not null) get ID /value"') do (
+set "_qr=%_zz7% %wspp% %_zz2% %_zz5%ApplicationID='%winApp%' and PartialProductKey is not null%_zz6% %_zz3% ID %_zz8%"
+for /f "tokens=2 delims==" %%# in ('%_qr%') do (
   set "chkID=%%#"
   call :casWdet "%wspp%" "%wsps%" "%spp_get%"
   call :casWout
@@ -2399,7 +2806,8 @@ goto :casWend
 echo %line2%
 echo ***                   Office Status                      ***
 echo %line2%
-for /f "tokens=2 delims==" %%# in ('"wmic path %wspp% where (ApplicationID='%o15App%' and PartialProductKey is not null) get ID /value"') do (
+set "_qr=%_zz7% %wspp% %_zz2% %_zz5%ApplicationID='%o15App%' and PartialProductKey is not null%_zz6% %_zz3% ID %_zz8%"
+for /f "tokens=2 delims==" %%# in ('%_qr%') do (
   set "chkID=%%#"
   call :casWdet "%wspp%" "%wsps%" "%spp_get%"
   call :casWout
@@ -2411,19 +2819,21 @@ if defined osppsvc goto :casWospp
 goto :casWend
 
 :casWospp
-if %verbose%==1 (
+if %verbose% EQU 1 (
 echo %line2%
 echo ***                   Office Status                      ***
 echo %line2%
 )
-if defined ospp15 for /f "tokens=2 delims==" %%# in ('"wmic path %ospp% where (ApplicationID='%o15App%' and PartialProductKey is not null) get ID /value"') do (
+set "_qr=%_zz7% %ospp% %_zz2% %_zz5%ApplicationID='%o15App%' and PartialProductKey is not null%_zz6% %_zz3% ID %_zz8%"
+if defined ospp15 for /f "tokens=2 delims==" %%# in ('%_qr%') do (
   set "chkID=%%#"
   call :casWdet "%ospp%" "%osps%" "%ospp_get%"
   call :casWout
   echo %line3%
   echo.
 )
-if defined ospp14 for /f "tokens=2 delims==" %%# in ('"wmic path %ospp% where (ApplicationID='%o14App%' and PartialProductKey is not null) get ID /value"') do (
+set "_qr=%_zz7% %ospp% %_zz2% %_zz5%ApplicationID='%o14App%' and PartialProductKey is not null%_zz6% %_zz3% ID %_zz8%"
+if defined ospp14 for /f "tokens=2 delims==" %%# in ('%_qr%') do (
   set "chkID=%%#"
   call :casWdet "%ospp%" "%osps%" "%ospp_get%"
   call :casWout
@@ -2433,18 +2843,21 @@ if defined ospp14 for /f "tokens=2 delims==" %%# in ('"wmic path %ospp% where (A
 goto :casWend
 
 :casWpkey
-wmic path %1 where (ApplicationID='%2' and PartialProductKey is not null) get ID /value 2>nul | findstr /i ID 1>nul && (set %3=1&set %4=1)
+set "_qr=%_zz1% %1 %_zz2% %_zz5%ApplicationID='%2' and PartialProductKey is not null%_zz6% %_zz3% ID %_zz4%"
+%_qr% 2>nul | findstr /i ID 1>nul && (set %3=1&set %4=1)
 exit /b
 
 :casWdet
 for %%# in (%~3) do set "%%#="
-if %~1 EQU %ospp% for %%# in (DiscoveredKeyManagementServiceMachineIpAddress, KeyManagementServiceLookupDomain, ProductKeyChannel, VLActivationTypeEnabled) do set "%%#="
+if /i %~1==%ospp% for %%# in (DiscoveredKeyManagementServiceMachineIpAddress, KeyManagementServiceLookupDomain, ProductKeyChannel, VLActivationTypeEnabled) do set "%%#="
 set "cKmsClient="
 set "cTblClient="
 set "cAvmClient="
 set "ExpireMsg="
 set "_xpr="
-for /f "tokens=* delims=" %%# in ('"wmic path %~1 where ID='%chkID%' get %~3 /value" ^| findstr ^=') do set "%%#"
+set "_qr="wmic path %~1 where ID='%chkID%' get %~3 /value" ^| findstr ^="
+if %WMI_VBS% NEQ 0 set "_qr=%_csg% %~1 "ID='%chkID%'" "%~3""
+for /f "tokens=* delims=" %%# in ('%_qr%') do set "%%#"
 
 set /a _gpr=(GracePeriodRemaining+1440-1)/1440
 echo %Description%| findstr /i VOLUME_KMSCLIENT 1>nul && (set cKmsClient=1&set _mTag=Volume)
@@ -2453,8 +2866,13 @@ echo %Description%| findstr /i VIRTUAL_MACHINE_ACTIVATION 1>nul && (set cAvmClie
 cmd /c exit /b %LicenseStatusReason%
 set "LicenseReason=%=ExitCode%"
 set "LicenseMsg=Time remaining: %GracePeriodRemaining% minute(s) (%_gpr% day(s))"
-if %_gpr% GEQ 1 for /f "tokens=* delims=" %%# in ('%_psc% "$([DateTime]::Now.addMinutes(%GracePeriodRemaining%)).ToString('yyyy-MM-dd HH:mm:ss')" 2^>nul') do set "_xpr=%%#"
-title Check Activation Status [wmic]
+if %_gpr% GEQ 1 if %_WSH% EQU 1 (
+for /f "tokens=* delims=" %%# in ('%_csx% %GracePeriodRemaining%') do set "_xpr=%%#"
+)
+if %_gpr% GEQ 1 if %_pwrsh% EQU 1 if not defined _xpr (
+for /f "tokens=* delims=" %%# in ('%_psc% "$([DateTime]::Now.addMinutes(%GracePeriodRemaining%)).ToString('yyyy-MM-dd HH:mm:ss')" 2^>nul') do set "_xpr=%%#"
+title Check Activation Status [wmi]
+)
 
 if %LicenseStatus% EQU 0 (
 set "License=Unlicensed"
@@ -2507,13 +2925,13 @@ if %DiscoveredKeyManagementServiceMachinePort%==0 set DiscoveredKeyManagementSer
 set "KmsDns=KMS machine name from DNS: %DiscoveredKeyManagementServiceMachineName%:%DiscoveredKeyManagementServiceMachinePort%"
 if "%DiscoveredKeyManagementServiceMachineName%"=="" set "KmsDns=DNS auto-discovery: KMS name not available"
 
-for /f "tokens=* delims=" %%# in ('"wmic path %~2 get ClientMachineID, KeyManagementServiceHostCaching /value" ^| findstr ^=') do set "%%#"
+set "_qr="wmic path %~2 get ClientMachineID, KeyManagementServiceHostCaching /value" ^| findstr ^="
+if %WMI_VBS% NEQ 0 set "_qr=%_csg% %~2 "ClientMachineID, KeyManagementServiceHostCaching""
+for /f "tokens=* delims=" %%# in ('%_qr%') do set "%%#"
 if /i %KeyManagementServiceHostCaching%==True (set KeyManagementServiceHostCaching=Enabled) else (set KeyManagementServiceHostCaching=Disabled)
 
 if %winbuild% LSS 9200 exit /b
-if %~1 EQU %ospp% exit /b
-
-if "%DiscoveredKeyManagementServiceMachineIpAddress%"=="" set "DiscoveredKeyManagementServiceMachineIpAddress=not available"
+if /i %~1==%ospp% exit /b
 
 if "%KeyManagementServiceLookupDomain%"=="" set "KeyManagementServiceLookupDomain="
 
@@ -2526,6 +2944,9 @@ set VLActivationType=AD
 ) else (
 set VLActivationType=All
 )
+
+if %winbuild% LSS 9600 exit /b
+if "%DiscoveredKeyManagementServiceMachineIpAddress%"=="" set "DiscoveredKeyManagementServiceMachineIpAddress=not available"
 exit /b
 
 :casWout
@@ -2564,14 +2985,205 @@ if defined ExpireMsg echo.&echo.    %ExpireMsg%
 exit /b
 
 :casWend
+if %_Identity% EQU 1 if %_pwrsh% EQU 1 (
+echo %line2%
+echo ***                  Office vNext Status                 ***
+echo %line2%
+%_psc% "$f=[IO.File]::ReadAllText('!_batp!') -split ':vNextDiag\:.*';iex ($f[1])"
+title Check Activation Status [wmi]
+echo %line3%
+echo.
+)
 echo.
 echo Press any key to continue...
 pause >nul
 goto :eof
 
+:vNextDiag:
+function PrintModePerPridFromRegistry
+{
+	$vNextRegkey = "HKCU:\SOFTWARE\Microsoft\Office\16.0\Common\Licensing\LicensingNext"
+	$vNextPrids = Get-Item -Path $vNextRegkey -ErrorAction Ignore | Select-Object -ExpandProperty 'property' | Where-Object -FilterScript {$_ -Ne 'InstalledGraceKey' -And $_ -Ne 'MigrationToV5Done' -And $_ -Ne 'test' -And $_ -Ne 'unknown'}
+	If ($vNextPrids -Eq $null)
+	{
+		Write-Host "No registry keys found."
+		Return
+	}
+	$vNextPrids | ForEach `
+	{
+		$mode = (Get-ItemProperty -Path $vNextRegkey -Name $_).$_
+		Switch ($mode)
+		{
+			2 { $mode = "vNext"; Break }
+			3 { $mode = "Device"; Break }
+			Default { $mode = "Legacy"; Break }
+		}
+		Write-Host $_ = $mode
+	}
+}
+function PrintSharedComputerLicensing
+{
+	$scaRegKey = "HKLM:\SOFTWARE\Microsoft\Office\ClickToRun\Configuration"
+	$scaValue = Get-ItemProperty -Path $scaRegKey -ErrorAction Ignore | Select-Object -ExpandProperty "SharedComputerLicensing" -ErrorAction Ignore
+	$scaRegKey2 = "HKLM:\SOFTWARE\Microsoft\Office\16.0\Common\Licensing"
+	$scaValue2 = Get-ItemProperty -Path $scaRegKey2 -ErrorAction Ignore | Select-Object -ExpandProperty "SharedComputerLicensing" -ErrorAction Ignore
+	$scaPolicyKey = "HKLM:\SOFTWARE\Policies\Microsoft\Office\16.0\Common\Licensing"
+	$scaPolicyValue = Get-ItemProperty -Path $scaPolicyKey -ErrorAction Ignore | Select-Object -ExpandProperty "SharedComputerLicensing" -ErrorAction Ignore
+	If ($scaValue -Eq $null -And $scaValue2 -Eq $null -And $scaPolicyValue -Eq $null)
+	{
+		Write-Host "No registry keys found."
+		Return
+	}
+	$scaModeValue = $scaValue -Or $scaValue2 -Or $scaPolicyValue
+	If ($scaModeValue -Eq 0)
+	{
+		$scaMode = "Disabled"
+	}
+	If ($scaModeValue -Eq 1)
+	{
+		$scaMode = "Enabled"
+	}
+	Write-Host "SharedComputerLicensing" = $scaMode
+	Write-Host
+	$tokenFiles = $null
+	$tokenPath = "${env:LOCALAPPDATA}\Microsoft\Office\16.0\Licensing"
+	If (Test-Path $tokenPath)
+	{
+		$tokenFiles = Get-ChildItem -Path $tokenPath -Recurse -File -Filter "*authString*"
+	}
+	If ($tokenFiles.length -Eq 0)
+	{
+		Write-Host "No tokens found."
+		Return
+	}
+	$tokenFiles | ForEach `
+	{
+		$tokenParts = (Get-Content -Encoding Unicode -Path $_.FullName).Split('_')
+		$output = [PSCustomObject] `
+			@{
+				ACID = $tokenParts[0];
+				User = $tokenParts[3]
+				NotBefore = $tokenParts[4];
+				NotAfter = $tokenParts[5];
+			} | ConvertTo-Json
+		Write-Host $output
+	}
+}
+function PrintLicensesInformation
+{
+	Param(
+		[ValidateSet("NUL", "Device")]
+		[String]$mode
+	)
+	If ($mode -Eq "NUL")
+	{
+		$licensePath = "${env:LOCALAPPDATA}\Microsoft\Office\Licenses"
+	}
+	ElseIf ($mode -Eq "Device")
+	{
+		$licensePath = "${env:PROGRAMDATA}\Microsoft\Office\Licenses"
+	}
+	$licenseFiles = $null
+	If (Test-Path $licensePath)
+	{
+		$licenseFiles = Get-ChildItem -Path $licensePath -Recurse -File
+	}
+	If ($licenseFiles.length -Eq 0)
+	{
+		Write-Host "No licenses found."
+		Return
+	}
+	$licenseFiles | ForEach `
+	{
+		$license = (Get-Content -Encoding Unicode $_.FullName | ConvertFrom-Json).License
+		$decodedLicense = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($license)) | ConvertFrom-Json
+		$licenseType = $decodedLicense.LicenseType
+		$userId = $decodedLicense.Metadata.UserId
+		$identitiesRegkey = Get-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Office\16.0\Common\Identity\Identities\${userId}*" -ErrorAction Ignore
+		$licenseState = $null
+		If ((Get-Date) -Gt (Get-Date $decodedLicense.MetaData.NotAfter))
+		{
+			$licenseState = "RFM"
+		}
+		ElseIf (($decodedLicense.ExpiresOn -Eq $null) -Or
+			((Get-Date) -Lt (Get-Date $decodedLicense.ExpiresOn)))
+		{
+			$licenseState = "Licensed"
+		}
+		Else
+		{
+			$licenseState = "Grace"
+		}
+		if ($mode -Eq "NUL")
+		{
+			$output = [PSCustomObject] `
+			@{
+				Version = $_.Directory.Name
+				Type = "User|${licenseType}";
+				Product = $decodedLicense.ProductReleaseId;
+				Acid = $decodedLicense.Acid;
+				LicenseState = $licenseState;
+				EntitlementStatus = $decodedLicense.Status;
+				ReasonCode = $decodedLicense.ReasonCode;
+				NotBefore = $decodedLicense.Metadata.NotBefore;
+				NotAfter = $decodedLicense.Metadata.NotAfter;
+				NextRenewal = $decodedLicense.Metadata.RenewAfter;
+				Expiration = $decodedLicense.ExpiresOn;
+				TenantId = $decodedLicense.Metadata.TenantId;
+			} | ConvertTo-Json
+		}
+		ElseIf ($mode -Eq "Device")
+		{
+			$output = [PSCustomObject] `
+			@{
+				Version = $_.Directory.Name
+				Type = "Device|${licenseType}";
+				Product = $decodedLicense.ProductReleaseId;
+				Acid = $decodedLicense.Acid;
+				DeviceId = $decodedLicense.Metadata.DeviceId;
+				LicenseState = $licenseState;
+				EntitlementStatus = $decodedLicense.Status;
+				ReasonCode = $decodedLicense.ReasonCode;
+				NotBefore = $decodedLicense.Metadata.NotBefore;
+				NotAfter = $decodedLicense.Metadata.NotAfter;
+				NextRenewal = $decodedLicense.Metadata.RenewAfter;
+				Expiration = $decodedLicense.ExpiresOn;
+				TenantId = $decodedLicense.Metadata.TenantId;
+			} | ConvertTo-Json
+		}
+		Write-Output $output
+	}
+}
+	Write-Host
+	Write-Host "========== Mode per ProductReleaseId =========="
+	Write-Host
+PrintModePerPridFromRegistry
+	Write-Host
+	Write-Host "========== Shared Computer Licensing =========="
+	Write-Host
+PrintSharedComputerLicensing
+	Write-Host
+	Write-Host "========== vNext licenses =========="
+	Write-Host
+PrintLicensesInformation -Mode "NUL"
+	Write-Host
+	Write-Host "========== Device licenses =========="
+	Write-Host
+PrintLicensesInformation -Mode "Device"
+:vNextDiag:
+
 :keys
 if "%~1"=="" exit /b
 goto :%1 %_Nul2%
+
+:: Windows 11 [Co]
+:ca7df2e3-5ea0-47b8-9ac1-b1be4d8edd69
+set "_key=37D7F-N49CB-WQR8W-TBJ73-FM8RX" &:: SE {Cloud}
+exit /b
+
+:d30136fc-cb4b-416e-a23d-87207abc44a9
+set "_key=6XN7V-PCBDC-BDBRH-8DQY7-G6R44" &:: SE N {Cloud N}
+exit /b
 
 :: Windows 10 [RS5]
 :32d2fab3-e4a8-42c2-923b-4bf4fd13e6ee
@@ -2699,10 +3311,6 @@ exit /b
 set "_key=QFND9-D3Y9C-J3KKY-6RPVP-2DPYV" &:: Datacenter ACor
 exit /b
 
-:19b5e0fb-4431-46bc-bac1-2f1873e4ae73
-set "_key=NTBV8-9K7Q8-V27C6-M2BTV-KHMXV" &:: Azure Datacenter - ServerTurbine
-exit /b
-
 :: Windows Server 2019 [RS5]
 :de32eafd-aaee-4662-9444-c1befb41bde2
 set "_key=N69G4-B89J2-4G8F4-WWYCC-J464C" &:: Standard
@@ -2730,6 +3338,10 @@ exit /b
 
 :8de8eb62-bbe0-40ac-ac17-f75595071ea3
 set "_key=GRFBW-QNDC4-6QBHG-CCK3B-2PR88" &:: ServerARM64
+exit /b
+
+:19b5e0fb-4431-46bc-bac1-2f1873e4ae73
+set "_key=NTBV8-9K7Q8-V27C6-M2BTV-KHMXV" &:: Azure Datacenter - ServerTurbine
 exit /b
 
 :: Windows Server 2016 [RS4]
@@ -2991,6 +3603,59 @@ exit /b
 
 :f772515c-0e87-48d5-a676-e6962c3e1195
 set "_key=736RG-XDKJK-V34PF-BHK87-J6X3K" &:: MultiPoint Server - ServerEmbeddedSolution
+exit /b
+
+:: Office 2021
+:fbdb3e18-a8ef-4fb3-9183-dffd60bd0984
+set "_key=FXYTK-NJJ8C-GB6DW-3DYQT-6F7TH" &:: Professional Plus
+exit /b
+
+:080a45c5-9f9f-49eb-b4b0-c3c610a5ebd3
+set "_key=KDX7X-BNVR8-TXXGX-4Q7Y8-78VT3" &:: Standard
+exit /b
+
+:76881159-155c-43e0-9db7-2d70a9a3a4ca
+set "_key=FTNWT-C6WBT-8HMGF-K9PRX-QV9H8" &:: Project Professional
+exit /b
+
+:6dd72704-f752-4b71-94c7-11cec6bfc355
+set "_key=J2JDC-NJCYY-9RGQ4-YXWMH-T3D4T" &:: Project Standard
+exit /b
+
+:fb61ac9a-1688-45d2-8f6b-0674dbffa33c
+set "_key=KNH8D-FGHT4-T8RK3-CTDYJ-K2HT4" &:: Visio Professional
+exit /b
+
+:72fce797-1884-48dd-a860-b2f6a5efd3ca
+set "_key=MJVNY-BYWPY-CWV6J-2RKRT-4M8QG" &:: Visio Standard
+exit /b
+
+:1fe429d8-3fa7-4a39-b6f0-03dded42fe14
+set "_key=WM8YG-YNGDD-4JHDC-PG3F4-FC4T4" &:: Access
+exit /b
+
+:ea71effc-69f1-4925-9991-2f5e319bbc24
+set "_key=NWG3X-87C9K-TC7YY-BC2G7-G6RVC" &:: Excel
+exit /b
+
+:a5799e4c-f83c-4c6e-9516-dfe9b696150b
+set "_key=C9FM6-3N72F-HFJXB-TM3V9-T86R9" &:: Outlook
+exit /b
+
+:6e166cc3-495d-438a-89e7-d7c9e6fd4dea
+set "_key=TY7XF-NFRBR-KJ44C-G83KF-GX27K" &:: PowerPoint
+exit /b
+
+:aa66521f-2370-4ad8-a2bb-c095e3e4338f
+set "_key=2MW9D-N4BXM-9VBPG-Q7W6M-KFBGQ" &:: Publisher
+exit /b
+
+:1f32a9af-1274-48bd-ba1e-1ab7508a23e8
+set "_key=HWCXN-K3WBT-WJBKY-R8BD9-XK29P" &:: Skype for Business
+exit /b
+
+:abe28aea-625a-43b1-8e30-225eb8fbd9e5
+set "_key=TN8H9-M34D3-Y64V9-TR72V-X79KV" &:: Word
 exit /b
 
 :: Office 2019
@@ -3309,375 +3974,380 @@ Add-Type -Language CSharp -TypeDefinition @"
 "@; function X([int]$r=1){ [BAT85]::Decode($d+"\\SppExtComObjHook.dll", $f[$r+1]) }; function Y([int]$r=1){ $tmp="$r._"; [BAT85]::Decode($tmp, $f[$r+1]); expand $d\$tmp -F:* -R; del $tmp -force }
 
 :embdbin:
-::O;Iru0{{R31ONa4|Nj60xBvhE00000KmY($0000000000000000000000000000000000000000fB,mh4j/M?0JI6sA.Dld&]^51X?&ZOa(KpHVQnB|VQy}3bRc47
-::AaZqXAZczOL{C#7ZEs{{E+5L|Bme,a00000P)=U$OaTM{_dYzX0000000000.~cWo3jqQi044wc02lxO00000pb_K801yBG06-i$0069P01yBG00IC21][s600000
-::1][s6000000B_]R00aO4giQbd0RTV(001BW01yBG000mG01yBG000005C8xG000000000008jt_bprqZ0000000000000000000000000000000AK)BumS+800000
-::0000000000000000000000000000000000000000000000000000000kWc]sXaE2J000000000000000000000000000000E^7vhbN~PV6eIuu01yBG044wc00aO4
-::000000000000000AOKKcE[WYJVE^OCKn@&]06-i$01yBG04e|g000000000000000KmcICE[[;8bYTDhbprqZ08jt_00aO406G8w000000000000000KmahnE]=jT
-::Z){&eumS+80AK)B00aO406qW!000000000000000Kmag800000000000000000000000000000000000000000000000000000000000000000000000000000000
+::O;Iru0{{R31ONa4|Nj60xBvhE00000KmY($0000000000000000000000000000000000000000$N(HU4j/M?0JI6sA.Dld&]^51X?&ZOa(KpHVQnB|VQy}3bRc47
+::AaZqXAZczOL{C#7ZEs{{E+5L|Bme,a00000v}wA@[CekK[CekK[CekK;YU#E]9a;N[CenL)FoL=XL{Y5^z2XSXL{C}[d)tLQfXso[CekK00000000000000000000
+::P)=U$OaTM{]2/eo0000000000.~b{a3jq!s04[Lk01N/C000006dM2l01yBG06-i$0000G01yBG00IC21][s6000001][s6000000B_]R00aO4.gW?00RTV(000mG
+::01yBG000mG01yBG000005C8xG0000000000girtgC/$Ke0000000000000000000000000000000AK)Bv/qJCxEcTeH~/^u000000000000000000000000000000
+::0000000000000000000008jt_ga7~l000000000000000000000000000000E^7vhbN~PVr7Qpd01yBG04[Lk00aO4000000000000000AOHYhE[WYJVE^OC.~#{v
+::06-i$00aO405Sjo000000000000000KmY,1E[[;8bYTDhPy-w}08jt_00aO405$,s000000000000000KmY)hE]=jTZ){&ev/qJC0AK)B00aO406G8w0000000000
+::00000KmY)j0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 ::00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 ::00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 ::00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-::00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-::000000000000000000000000000000|0VEHtZa~w|0V2DtZa~w|0U?9tZa~w|0U#5tZa~w|0Up1tZa~w|0T#!tZa~w|0TpwtZa~w|0T3gtZa~w|0SqUtZa~wW{^r)
-::W{^r)RaaJ1gX|oOTqHD$Oe8SJL@j3R0001sL@k$iR3to!3@zx(iCiQEh1-=/^u0opBnbci|Nn#20ErAF^uGkFBm{}wiPMGBc[6j2^f#YZgVF&]-KJPN$BP6ch1-#d
-::Iq!BXiRv..^xFjxiO7pgBnXM}g~[aW^t=Bd0QcI1#2i~,UtPnA^KmzJ00000h5vO6xB(nF05Q^{]NGhX)uwHz^ld[f1SI$OiNWi;IqP?E554n+^8+a5IqPx;G08hT
-::BzL8_0RR91?z.ziG4@UZ?z0jn0FAsS00000xF7&k0EzL5_YG^!;B7r3?WT3Q-SBKW?xseB?xon)42kiJ6eQE.iNVwA3Dt@)iRkxqBn,kuiN,KlIn#0=i##NW[zduy
-::$8!WZ){vGu=_r[{H2@qqkd3q]00000jZObC^UR+3|NoGXkdTm(RaaJ1gX|oOR3to$Y$Py@bR/y3TqHP!)se~S]L7$3|B2{{]7r$D#2ktGTV7vX!.@62-jR[L0RR91
-::G1B-,iNT5RG17y@9QW~w##[Q#iT7Uj[rn9hUBivG00000Ir4WL554-?^aAj6Ir4G^F~B-Ncd[tu0002&s,QF4gTx#$|1rQ[iTYk(UBhOOiTSu70000f^|xKvR3r$A
-::!HL@^?WfSy2no[N[_-3(2#NXA;B7r3?WTS[TqF#M?)l0m!PDyr.ih${bR.Cg+__RSWF!nZ+]Zhz_P1b(#d8EX+]rJp,fIa;H~/^tjYI!2|LHCN|NoGXkdTm(Rf,-/
-::?;EiR41[RqbT+)d1a(}z?;qaE0002GU^z{HY5=(PL9A[)bRPf!xL_u8Z0PPD004^c5QD[J#{ghKtZeHKgX|3dbqN0zkWj2^gTxHUxB(nF0KyCaRf,-/?;na~7ytkO
-::|8+pz0E;8{|8N.p6})WaY{|j|0FaQ7Rf,-SR,iM(gX}PiMF@slXuXMOf(Xv?|1jub{{R1j#0-W5@X|j$iNe9-1p)2z@X|j$^u?J{1$sv+#+)DHjYZgj)pt@{F/I/~
-::(}s.!iB/6.Py-w}i-v2a1ONa4gTxT@rHy6yUSD0qRWZql;yTfyi)Lqd1dELn0Exzl$HDFgf#UxD{{F$o2!ZAS0RaJP^8T$QiNe9c5HavE_oYKuG4e6ci3E#5gZTt@
-::##?&rUBi&(Rf,-Ri,,cBi)Lp&P?n^~P,dpP6#xK)#1MtRc[c@q42fL_jb.?.UR~-(5C8y/W&yfOUBi&(RWZPc;&@Aa54H?fiiu!LtZax30ziZK5OwWc!/p}WRk/KJ
-::001$.iRD,TjeY2Y?=27p2#MD7rEAFjgW)T~ObzIW3;5xd^z.pNgTxSCUtPnHRk/KJ001$.iRD,TjeXctgX}zubqL2r!~g(Q0Q0NIMaTdE0075D&m4rY0LMkpAOHXW
-::$3[f)fB,o6^H-+o3^z[GxdZ@J0Ex&,rJ.~}tZaqAbs1MzXm~[cY.o.{tZeAL4,(pz#1Nx(Lac0!Rm6kr3}]rV0Pt!UY5.~gQvc9{#0.VNbq6uq=^~/N0HJI_tZaqA
-::bs1JxXrM!]Y.o.{tZe9c4,(pz#1NxwLac03QjJx}QfdHd0BRg+06@s4|8?Ow({;oBz/wHzXhN+Pg}_-gP,7;8L#&9Qjzg@$=sOPp0E5I3qi8~_Y?idSgX|1aY5[Or
-::$Y=@G0094W#Q+HP#0.VN4}]IC|No)ILac0sz/zi=P.s6ytZZnGL#&A,^znO7gTxS{a6-tXjaAfY08)lN|8?m()1pMcghBuR|Dk-BtZaqAbs11lXbwcIY.o.{tZeAP
-::4gdgy#1Nx=Lac0R0RMFi|8+[mb;F@Jg}[Jl3jhEAp^D@bY=yve8BkDY97L?aXpTdyZ0L#)004u/5TlertZa={)1Yv[Y5.FIbrfm?|8?m()1XMbg}[J$!.IXu01vj@
-::bS;HXLac0sz/zi=P.x9VtZZnGL#&A,L=FG|gTxS{h)fGvgX|3db/$qFgTxGjearxKEuoM@tZaqAbs11lXf8yoY.o.{tZe8J4gdgy#1Ny9Lac0q?;s]P&?U4X#0.Od
-::!~k@Hp;qI-Y=yve8CO@m.9xNwXpTdyZ0Oz&004u/5Tjs1tZY)JY5[Or#Q+G+UWwR]W&OHKUtPnHRf,-OgX|QcbV96b$3]S^0002TMeqOs0075D]dJBL0ENJH8B$Vc
-::ctfmgXpTdyZ0L#(004u/5TkTLtZa={@1StKXaE2J[M/+p0BQhI|ImZP428gT2Qk~}t]fc4p=d(]Y=yve8BkDY{zI(6XpTdyZ0JS}004u/5Tj]9tZa={[Pq6OQfdHd
-::0B8)=0094W@Elb&#0.VNbi1K]Lac0sz/zi=P.qTBtZZnGL#&A,2n^&LgTxS{d^t]jY5[Or4F7cq|8@/H)1pNsh[q51tZaqAbs11lXdFbWY.o.{tZeAj3/-Ow#1NyD
-::Lac0!RrG_G3~B(U|8+?,0{@aJ|ImZP428fCmBWL5[Bk0C-jK3VkV33&g}_-gP,7-tM67IRjzg@$=#LBl0E5I3qmV-ZY=i6!|8@/H)1XMbgMI7)bS;G]Lac0sz/zi=
-::P.xvltZZnGL#&A,TnqpJgTxS{U^z{HQc_LF|8@yD({;fC,o$5K$.|J4Rf,-SR#P$CQj0|hiwu~J1PO_C!RiMk{{H]{f#LxH0Rd~$8!]I.G!lu?!RQBp=KlWv{v_nc
-::0Rd~k8!^/S#=.6ff#v}L0Re0N8/vvof#(}H{{AukiO)^jG4P50!Nv&Qb@}MSG5RsaGj/HZ,D=V!(j_W55HbES#,0M=i8Po+gZl)]fLL2zUtPnHRf,-SR#SoOJOTg!
-::i)LqV_(+k/i$xH}000000E;Nw#{d8T006jG0002#IRXFxi$x5J5P|vt00jVaRe|~d00sbbO+;cM_Tzg~01t&]0ssJuMGTF#xc?kDjg;_k|NrRG6aWB@l@@v?|B3ME
-::loS8}iNjEh1RhXUQ.i}0=syww0E;Nsi5Q6.B;a5a004^c42hMv{{R1jzyyhf#Qp#Of&,Ud1psvyjfK4a|NprJ0001swZ#4Z|B1+,rRzkEwaoqh|4?kky}bVa|7s9c
-::=$iom0F8wV{{R2E1ONa4$At|3|NjsG008r+P?qGW{{R0^i$x4.0RJ&PSOfq7gTx@?g~;K@|AXrUP?V$j|Fy,Z|Nm-LiJi#)|Ns9m=raTW0E;Nojg;_k|Nn!+6zKjF
-::0051Z4F3QBjfKqq|NrQ{6952?jm.Z4|5}Y40a;DgQ|J}}0050c5QD[FP.-lU=!5-K|6X5H|Fy,Z|NrO)5(!]/eGH95FoVPpfj;BM1]{)^p^oFfY_Fvg004]?oI;Q[
-::i@zi4|Nn^YFpWbviBmL,$MdC+Lr9Ia.2MOmiN{b.jfJHC|NmA{=zsYC|BZ$0{r~@]jg_Fq|Nn{jDbP|.R,kj&{r~]yr1}5;jYC-u1ONa4gTx]7rHz&m{{R2E1ONa4
-::jkV1E|Nn{C]QDcI&?MuXgX|1w9033TjkUP_|Nkk^iG}R^|No7J@EU}$P?qGW{{R0{P?V$j|1juf0{{Svh3x)R|AWL7i&k&Nz!ZrAQ0UJ0|No195QD[Fiw}v&]Q4PS
-::6o~/bz?Q^}TV7vX!/p}WRf,-OgX|QcbV96b$3]r20001mz/zi=P.u8VtZZnGL#&A,6bS$TgTxS{bV96bjaBr6?;ls6XaE2J[M/+p0BQhI|ImZP428gSG[+cdtZaqA
-::bs1ArXi.G0Y.o.{tZeAj2mk;s#1NxoLac03|8+rebqxP@]#9OVg}[J$!.IYF01vj@bS;G]Lac0sz/zi=P.xvltZZnGL#&A,m;Rv?gTxS{U^z{HQc_LF|8@~L({;fC
-::,o$5K$.|J4Rf,-SR=$t_002{i?=cWA42xX|jfbEB002_]=qnHa0E5I3gX|1b==b/k|A_zV=-F26|5&L#H)FCr=nD_40ErwV==1yk|AWL3gYFP[)}U~_Q|QX~|Nn]_
-::B;P~||Nn^y41?fFiG2u.W&OHKUtQ^d4,(p=Rf,-SzYqWb09I3j?=cV#2#a-LQ(#A@4,(pz#1Mn,3{(XQ4gdg(93;#z4,(p)93;$_^W&D^jRZb}#}HamQ0R]i004u/
-::5P|=o0001W(4cU=fyST!002|ym;|8{i5w,8Fb[C#iCqkX#1M(f2#sa,TV7vX=~oW_0FaQ7Rf,-RQ/kLFgX|FKm=OQ~g}[Jp2?}2Ajdko)Q/Qv?P][ff0BQtQY6NIl
-::MXYT9b@E=og}^=^cngDl?/Mmy1,Af)Y,0{Y0BQtQY6NI?MXYT9b@E=og}^=^cp.s)@7,l10Jy.Y006oV0000FMn(v{^zw@4!e,nOLac01P.,~b1XgMUXre_|Z2xuW
-::|I?xQT3L7[fqm[2r~m.Cz]DKKx)[(V01rk,@1T6Z4@[CbqoP8rY,0{,Meu3?Y6wtj3uwwktZe]v=?OA(z,;?(Jc~u}xeyT&5sOvyIl/LR5fKp@)Q][l_u}wngZTe.
-::5xD/U|NrX?xDgQ&5xNl)5fP+9Lac0w6_Vq?Y=i6!|8@l.AoBnJF~Ebw42[/[TV7qmp?RR0Y{QU{Rf,-Oi)LqdMGT8o5Q|L|f&]ae1pssyf&]ae1]{(-iA[k(iB$}V
-::MF@H#[Bsh.iA[k(iB$}VMF@H#TmS$7F~D10!/p}WRf,-Ri,,Q7i$x5JRS=6!6pLLLf(Ksh1pss$f(Ksh1]{(]iCq-1iA[k,iB$}VMF@H#-yejriCq-1iA[k,iB$}V
-::MF@H#L/@T-TQR^1UBi&(Rf,-OgX|QcbV96b$3]e}0001sT@ofT]Z+;=0ENJH8BkDYctfmgXpTdyZ0Lps004u/5TkTLtZa={[Pq6OXaE2J[M/+p0BQhI|ImZP428gT
-::2Qk~}wEzGBp=@5|Y=yve8BtMaphK+|XpTdyZ0JG.004u/5Tk5DtZY)JjaBqgY5.~gY8-[}MyzcAb[2btSz3j^bi0MybtIvLLac0sz/#eiP.yW)tZZnGL#&A,00jU5
-::gTxS{ghH&r?ouW^Lac0sz/zi=P.w41tZZnGL#&A,-ynpsgTxS{j6$qzY5.Ge0snRM|ImfNb,$.L|Ns9|QvY=j|8+#&0BQkh0RMIL|ImfNSz8a4!.IYF01vj@bS;HX
-::Lac0sz/zi=P.x9VtZZnGL#&A,gaiNpgTxS{h)fGvgX|3db[czxgTxGjeeeKuEummStZaqAbs11lXx(4sY.o.{tZe8}1ONbo#1NxkLac03QfdJIb[2btSy-kKi)UN5
-::!/p}WRf,-SR#SuQ9E)K|i,,c)7&{/1!w)OIlK=n!iCyH4d?.(Q^jV?xQD_7dtZY~4g!},hSdCZkSyxhtRp98s3jhF&Rp5if5Q,38+?2YvAWf_nR^I?+|Nn!/5QBXP
-::0CWyeP,)qS2;Vmz004u/5QF/=bPJ749{.9Ffcg.22a81zi5Tl554Q3#z(Y[A42j40.#QdIbqGM~[F~NIUF3]J5Q|OZi3qp?0001uW&OHKUtPnHRf,-OgX|QcbV96b
-::$3]e}0001sT@ofT]Z+;=0ENJH8BkDYctfmgXpTdyZ0Je[004u/5TkTLtZa={[Pq6OXaE2J[M/+p0BQhI|ImZP428gT2Qk~}wg3PCp=@5|Y=yve8BtMaphK+|XpTdy
-::Z0H69004u/5Tk5DtZY)JjaBqgY5.~gY8-[}MyzcAb[2btSz3j^bi0MybtIvHLac0sz/#elQ+s|LtZZnGL#&A,!~y]SgTxS{fI^Tn?ouW^Lac0sz/zi=P.w41tZZnG
-::L#&A,paK8[gTxS{j6$qzY5.Ge0snRM|ImfNb,$.L|Ns9||8,4qbrAn_3~B(s0crsMb[czxS&tt4mBWL5]Z,aG-jK3Vh)fGvg}_-gP,7/iL#&9Qjzg@$=tlwo0E5I3
-::qliMRY=i6!|8@~L)1XMbgMIJ.bS;G]Lac0sz/zi=P.xvltZZnGL#&A,6aoMMgTxS{U^z{HQc_LF|8@/H({;fC,o$5K$.|J4Rf,-SR#SuQ42wk(i)L$h5HY}s)f84V
-::/SWKLGzvR+6n9@&-Jk+v0Ex)n,Ym1$4p2~2|8+rHj0pe$gTxR}iQiCYAWf_nQ|PAo|Nn!/5RDWwiTH!Z5INU$8(XnNQ0QU^003E7Xdq3jY,,.k_Tzfe#1QM,i$xHL
-::Ft_B#0050/]jltEUBi&(Rf,-SR#SuQ9D^X|K(+(4i,,Q#T[Z^X40J@=^H/mn|8zWy133jGL9A@bGGw6_0000v1uQ|VY/_1yQw+o91dDqJi)3$hRpjWI_TzfmRpe7r
-::S61j[^5c4d!0Q!,?;nleBdl!b_~@62gTxF|S62VfgTxSxW&OHKUtPnHRf,-OP=h[nK(+(4i)LqG8.@3-7oj9UtZX@0bq.{q7ytkOIRz|1tZZ}{gX|1woFlAk=(uC/
-::0Et}+gTxSvUHr.a/Kv0ZK(+(40000nz?8h{#|0!otZV=P0074YC^$_j00000#|11wtZV=P007Ct1OSkbgFPTXtZV?PiRD,Qi)LqGD23Z}BxIo(0000v1uQ|VY/^h/
-::P.rATtZe[@{}tF!tZakC5QV]W8.wf(XcQ![Z0ITl004;y2!q5Bjb.?.UtRy/x-FlXY_H+H004?C]Q,[L00000jb.?Tz,}Ek!UO=2Rf,-RQ/l8dgX}2)bqG_FjO-jZ
-::UX69(SXNVN0BQjL6^ik{Y=yvhCXHS2P,DGM3{(WF?/M0aMdVspP.,~E|8@O16^_.0Y=yvi7V8jJQ+(Qe0RI+7P][f+z;J6s!0Q8xMdXcT^,.6G!/p}WRf,-SR,iMo
-::Q[emhtZakqRL4cU00000Y5.RM6|hjOY?P$MT3Lxjyo,H+iAC6h?;o$VQ|PJ,004u/41~aSWP|JsiQj|63{#2m=#vQm0E5H~gurz]jb9jp?;o$VQ|NvP004u/41~aS
-::DUDwwgX|26[l+t(2?;|t#0.SMbrg-XFoFBfN33jhqQ]zF0{{R3?nO+Xv/zPD0D=3]N33jg8H-/,i(F&NMcj==yopuViSp=82?;|zMYL/Ov;!_Xybrd6;43G+54Mxy
-::N33j#Mcj$^iB/H,RoLhy2?;|#v,bstY=OhzN33j&TL^6ouqpF{_~P$(LxafwG1B-,53ksX$Bjk2gX|1Y{}s$otZakC3]~Jg?[m{!^v/OV?;m}_70ghqY=guM0q}_M
-::sG+d5tZaqAbs11lXsAN0Y.qkhtZe8){{R1j#1Nx-Lac26)1Yv[iAAi7MX;r)1dFifO{{E,MX.(S/7zP.i[5AftZa=&z+;MD?Hq)WMZk-y#EEs.jdj@G[rixh1pq,n
-::+q(DB|NsAqMc{-&42@y-R#1sm;mjph004;a$c/tFiB.(2Q2!OwP][f@MbO7Z-5rFo08m!{70])uY!AOh,n_9vi(e}}i$&yQMbH~n+Pw8{XvqKo0B8WfX+01s=v)Rk
-::|AWLFxj/e?05Q[+P?V(V|8oTYb,&UCY6DVGYelpS54V8eN33j6i$$?iu/5LsY.rd,tZZsP|8+rH+ad{Jjb.#)USD0qRf,-SR#SuQ9D^X|K(+(4i)L@leGGJOgMA19
-::bZLeEbY-V}1UUsHL9A@bT8lF|H7G&?Y/{m&p&@&F067ILL9A@bLW[QuNQ3zOcR7nw42w$/i-c!,TNH]]/E7G.=wtQ(|BFrJi(fxLQBqgvDDnUQSXycT|8]w,6}V8W
-::Y&#!DTk9Hw?;nl/C#.Dfv/hDBgTxF|SO0Yg|ImZP5RGN[TV7vX!/p}WRf,-RQ/S]+i,,cz-jKI8^H.^TJs@1=Yyfm6p)sJDY=yvd9D^Y1L9A?5bQ5HY6(L]j067(b
-::L9A@b1UcAr9+s+,Xy^.bZ0Jq^004;~41?fFiCqYdW&yfOUH{/XW&x0_TV7ql2mp|fRf,-OgX|ECT@lAYD6DMg9033TT3P?f3{)HmT3Lm^bufcHAV92a0CXpVJtRS^
-::Yyfl~gFPrgtZV?v6=aJQ7ytkOITb8HtZa1#i5+0GtZa,2{K?+y0FaQ7Rf,-SR#SuQ9E)K=i)L$hbr6ev9EnBXi$xTPMdXV_7?PyPh1-y7Qc_G0L#&95{}tF!tZakC
-::5QV]X9Ox4C|NnzMAV92a0Cf)4J+}acYyfpRzBEIuY=i6!Xs{[)Z0K$P004^s-=-c0gTxSvP2_Dn5Q$w3iB&YjRp5zD6p2,_jb.#)USD1R/Kv0ZK(+(50001Fp&@&F
-::0HZ8HtZYzF|8@Y6Q+psCtZZn20001JBtWce=$q#M|HlU/K(+)o#2^+ijb.#)USD0p7yyuvRk+x,tZcam0001q;yMPz2vdp5)fVuJ7y.jOa}/-7h0=ZwiP7uojYAkI
-::)T!36?-U]ZLac0b3OjHVa|O6yLac0Ci$D.wUBi&(Rf,-RQ/oHF|NsAi@3e&m0E;No54KPbQV-IJ4pI.cPz^QKwonXG54KPXQV-IJ3Q_ZYPzh2GwonLC54TVTQV-LK
-::1XBMnXxv4tY.(JO=/P+8|BZ!o|NsAk#6akI1ONbqz=]|nDNs/q0BU~!bqHz!R{ynh|NsC06{JwCY,LBC|Fv}g|NrRW;]TVK#0.sP^=)tCUR}eGRf,-RQ/S]+i,,cz
-::-jKdF^H/FaJs@1=YyfmDgFPrgtZV?vBV@f&0000v1uQ|VY/^e;QfMSVtZY/N71(U$Y=guQg}_)kgX|1wY$~j5=+@a1|A}=BgTxStT@mb3^,.6G|KLziY6NH_L9A[)
-::Z1Dg8p)H_9Y=guQi3W{j^&Xm-UR}Zn0FaQ7Rf,-RQ/S]/QBhO?bqMH90RRAAzHm(eY,;rhU_)uR=sN+b0E5I3gX|1b=u.dy0ErwV=;5Ig0ErwV=u^zb|5#d6R+fY6
-::=o0||0E5I3f(LIptZa4AgX|1b=pz6C0ErwV=)^,^0Et}/gTxTWMF;d0tZa?C^,.6G?E8eV0FaQ7RWZPc;&@Aa54H?fiiu!KtZax30ziZK5OwWc!/p}WRWZQ11ONa4
-::iRD,TjeW?djdjR^?[1622=l9reb~7K0002;tBK!?O$.6qDfxr{4}KJlMaWWv@-{W[QRo_~|Nn!/5bNMEz(Xc$3W]i~h,SmGK;n~QP?n]{R#3+7J=lQg]#1@;i-vEe
-::1ONa4gTxT@rHy6uTV7vX!/p}WRk/KJ001$.iRD,TjeY2Y?=27p2#MD7rHu[Q000000l|ae4~k3/=!gsgK!f.Yb@1Y_5MEzh!/p}WRWZPc;x_7Q42xX|iwuJ@41z#|
-::^yl$ITV2DDRf,-SR#SuQEXPIE00000i$(B@54V7TNUUtp=unGA+c?&ANUUuCbqN0z-+&7-gTxSpzz?BM0RRAtMGR)vI89m+g$Mxv0Exi]Ks;psP)=U$4~6#t004_S
-::fB,mhh0-g&=?Px#i.3dx004!-4}{wQ004?C0nY,WiABgceaH_n$p8QVgMSPF4}_w}004^c3;C#@bqoV{5Q#;5gFXNcgrEQb05RK)gRnuYY=yvd1Um.nBa21QivWed
-::cx/PJ3{q16v#dd]Y?h-#0#NA1/{X4H#1MtRbx[5?;b(+CiFMqKRp3#LMcisYQc$6-P][gnMc[Pg003)LiABu-)2E9,P2_PL/E98;L9A@xgS0_cY?5VqMch(Ub?vb|
-::i$&;8|Nqc~#0.PO7=io10000Fg?L_;|AR&+1cSx|=~w]&|AWUA=_R2O|AR&/2!nmp7!QT9{{R1tW&OHKUtPiw0FaQ7i&JAliRD,_$5x5fQ.i@?]Q4WkhyVZpxd{LO
-::0EzqarGvvHDZ_1^TV7vX!/p}WRf,-SR,iB9Q/EZa?^m$IiB.gj0#jD#tmXgzi8LgQb3o|H/s5_ORm8aj0000$0l;ku1dY0g0002;rHgY]i-fm!vX}q?0ExPs0001s
-::Lr@-0iGrX2000lS1+xH#Y?9&T0000Fw,{g@tZa#br~m+}i$he4Q([?b({(N{,ojrtT2PHe(_|#s+KIK!SzC=|]jltEUBi&(Rf,-RiN/fnUGRhK5a[32|Nl}^P,dn)
-::/s5_G?;m^F08{[Jpir!Ajb.?.UR}eGRf,-/?;o)mY7m3KFi@v{2?(qXEaCtEgTxTYg}[J#z_^IoRf,-SiN{un+?DJ,9E)~6D/k6Q|8yopgUJ6e)+aTZuh[x2;b(+C
-::SN|2vP][f(#0+vZcJDFL^jTm!4TJ0qQ2!OoP][f(#0(!ljb.#)USD0qRf,-SR#SuQEQ?_9iA~6ha0n|fi-Bthcm&lq|Ns9v[VEc~000]Ia(d#k0fW~7iFMFdR&!rh
-::|A~Fn=nLZi|BHRpgTxSt!HLrkulS2a(=0S|0mq9+)D(hqRn!4}+QLsVgX|26O~]6.|8+q7UCjR#&uuXsi&rOh#+HHRJ4Mim^!~vki)Slf,HckfR^M0j|Nn!/5bJk|
-::[b}OO^/g/0_.[G/P,9CU,iip;2,,X)00000$3[&#0001qUEs$?;NyEw0O(IR|NqBD(/S4c08//T2#H11{}s$otZXsT14Yn[_4d(tgTxFu#u@Fau!HyjiP0NP+N?Q.
-::q=W1X|8+re70ghqY&$V;#0.ml3;C!fR|Jh]]jltEUBU;eRVl+W;yXP^16GZF-.cIQs/a6}iOabL0001k?]O;u]QDR3iN@7G0002;rHysmiRZZn0002;rHRoo)(!EV
-::004u/7?#B0TV7vX!/p}WRf,-SR#SuQFo{LbiO5KaRmh87$catNnYjW0008(.iABUYUBrGbjY9#8eb52GYtR]rOc)q+OcxY$0Z41x7z16;xds3L0Bi6V19i}e..,NX
-::rR(W0Ma&)pGmAycxdH$H0E6fPnfLiQ!,wBzLjj9[(}.Wmxds3L00F=QUC@XL7?#rn=!xI-rHxqsi$xrbecZVQ0001ubqMpNxdH$H0EtD-jYI#L^xWqn7z0)&IbFzo
-::C~NQ.19i}gP0Tq@6muGh,NMZ8Q2+6G0002;rHRnK0ssI2nfLzd(5K3Mjdk3+1][s6iPwom[bjgE#4uZ4UtPnHJ+l9XY/;u|iRD,TQ/Ea4xIwIJgX}yx!,o[RNEnMX
-::v^Y)FiA}]ga1@VoiN@7G0001ueb9.,]QDb.)1GfpL9A[Qph2u_DbRz!7,SGaph2u_Q0V(I|NprL0001k#1QkP?jmgp0RRAtMa1i/jb.#)USD0q!/p}WRf,-SR#S;@
-::gX}zsRm6!-yo,J|DcC+L0RR9GjvWC20KxbJX~3)hs/Yy1ya0)sxQj+]jY#NqWQ#@)gXjX$^=!cpYjwaFjeXF$1][s6gX|cI,a6=2rHysaiRZZn0002;rHf6ti(enr
-::82;nNgTxqveZT/81].RJ?(Am]#2AU#i&rCd&IK?7|No0c#3|T=^!xiY?7f7s0E;Pqje8jXO}vY9EYbLDz!)A8i&=AaRlti@#EVk=J9WTw3p.W7cPKgXb^VMmIr4TC
-::P,7J?=)7L.0F6U1gTxSveZ=b|J5|7T1y+v3?,Z2XQ0w4{MZi!{S61ka0001sMZkl]5QD&Njd19TQxrK-{BrVx@.+B,6ms}E{(LicMF[lJ42w/@i(ex?iSX#n{{R1j
-::#1M(f#Oc&i|No6/]jltEUBi&(Rk/QL004?QS5}RE-=;3hja}S???!I!6!WEt$Ajn@J5UsJ4!H(Z004=_jd(RIrR)U4.nj-;008r+gTx@PUSD0qRk/QL004?QS5}RE
-::/DhWSi,,R|rHg$Cxds3L0E=}D]QDV[42]Z,xds3L0Q04T#2{W[UBi&(|NsC000000|NsC00000000000000000000000000000000000000000000000000000000
-::00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-::00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-::00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-::00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-::000000000000000000000000000000000000000000000000000000000000000002m$~A0&iaJ5C8xG000000000000000000000000000000000000000000000
-::00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-::00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-::00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-::00000EC2uiKtZf,bS$iF000000000000000000000000000000000000000000000000000000000000000006aW@goJ6c^7yuanvP7)G00000uqdo.6aW@goJ6c^
-::8~^~v&S5bf00000Y$~j56aW@goJ6c^4ge1T=tQh-000006eO&{6aW@goJ6c^4ge1T^e89000000oFlAk6aW@goJ6c^7yuan21TrF00000R4A.$6aW@goJ6c^6aW;f
-::A4RNe00000=qIdf6aW@goJ6c^5(#nbG+1gz00000JSVJd6aW@goJ6c^4ge1TM[6h_0000093!l300000000000000000000000000000000000000000000000000
-::00000000000000000000b]x{jmINF-cmQB00RR91M_d)Vd2[7SZA4{eVRdYDOhZXT003)MWdL#jZUAKfYydL=G5{^BWB^acYybcNB?,r0H2_&0EdV6|FaR|GbpR~[
-::B?,r0GXQk}EdV6|FaS0HbpR~[B?,r0G5~b|EdV6|bpR~[B?/5,E(wn9FaR)BFaRw8B?,r0GXP_(B?,r0Gyr4)00000F#s|EHvldGFaRz9FaRz9F#rGnZUAEdVE|)Q
-::ZUA2ZX#j8lUjTFfV,qdf001Qba{xL3B?.~)TL2{ha{yfc00000Lvnd=bU|Zrb!l?CLvL;$Wq5Q~002P&L/zL,K?$zyNdPkdG5_PoLvnd=bV-S-Z,p_@WqANYa)Qrc
-::Q+P5ZWqD9xa$#+&Lvnd=bVY7sa)Qrc07G)laCAgvb98cVc}rz]07G)laCA~.Y.M3{WkYXnbY,yS07G)laCAgvV{(;LbO1wgd2n;@a&Ew3Wk^LjXaGZUd2n;{VRL9i
-::VRT]tLvnd=bVp[$NMUnmP-[XmZ2(_Zd2n;[Wpi|LZ-S?zb7&lVa)QrcQ+P5WVRL9uVRB)[07G)laCApyZc;[xWN(Q&Zvb.uZ~$.sZvbKdY5/Qp0046UZ~$.sZvbKd
-::Y5/Qp002^}Z~$.sMF4mJbO1vDZvbroPXJ/7Y5+KLasY4uV,qjhbO1B}E(yZzYyfNk002]OV]ef/X?MmiX?Md_Zf8SpZE$aMWmf=FaAQJgZe)e0XGU]wZBuk|X?Mmi
-::X?Md_Zf92jQgCBabaH8KXGU]mWmf=FaAQJgZe)e0XGU]mWdKreV@lFyZevMqX?[5}Y.xIBNMUYdY.IpaaAQGpd2VAvZ,6dFWprgjVQg#wPGoXHb9ruKLu^efZgfLo
-::Y.|8dWO74nX=QG7Lt$+eG5_PoO8_v)QvhE8MF4F8bpUJtVE}XhX#j5kZU6uPO8_v)QvhE8K?&X^bO31pb]u_jbO31pZvbupNdRsDbO2=lasYM!VE}9Z002t?O#o8?
-::UjR}7WdLpfWdL]oVE}9ZNdRsDbO2=lasYM!VE}9Z002t?O#o8?UjRq|R{&+?L/wH+O8_v)QvhE8Pyk5+L/zm]B?,r0H~@$^cmOQ_B?,r0GyrG.cmOQ_B?,r0GyrG.
-::cmOQ_B?,r0G5}},cmO2/FaR;DXaINsEdV6|FaR;DXaINsB?,r0G5}},cmO2/FaR;DXaINsB?,r0G5}},cmO2/FaR;DXaINsB?,r0G5}},cmMzZ2m$~A4rTxV5C8xG
-::(3;_rDzaV6RsYEEgJi]Ts7S1A1poj51poj5xJayQ1][s61][s6$VjYg2LJ#72LJ#7,hs8w2mk/82mk/8=t!)=000001ONa4=t.;?000001ONa4^)_m6000001ONa4
-::2uiGM000001ONa4m_JQ^000001ONa4C_zns000001ONa4I7-N-000001ONa4NJ]}1000001ONa47+h,b000001ONa4Xi2PW000001ONa4SV]pG0RR911ONa47+q?c
-::0RR911ONa4I7zH,0ssI21ONa4,h#Ex0ssI21ONa4s7b7B0ssI20{{R3cuA~m0ssI21ONa4xJj(R0{{R30{{R3h+Jw$0{{R31ONa4m_SW_1ONa41ONa42uZAL2?;{9
-::2?;{9NJ,[02?;{92?;{9C_qhr2?;{92?;{9$Vseh2?;{92?;{9^).g53IG5A3IG5A00000000000000000000(Hw.a09FqP|F3Zi(Hw.bz#&6Pzk7+i(Hw.czz{@o
-::ziOr,(Hw=ez@at_zr-Y4.4Ox=Fm)U_FQPF4U/qFCz;=Bee_[{=(Hw.cfR6GF|35-x(Hw.dKo;.ezsOq~(Hw=efLgLAe~05J(Hw=eI6]A_SCA^J5+T6d00000zv1Kn
-::000000000000000000000000000000000005C9SYU^_8J4ge4Uazw0b7yudof;(xr8B,SV_uj?qg2];|tyAb$M+^LkB_(u|gW;ls?,~f4zwxH#K&K+ts.MSuq7_^-
-::8}^w[3o^$Nfl9Y+EBgF_v7UWlHt(K[hTx_J/Cq)F--.?tu|qvgqYN,_ogkIQBfp@~^0V!ak=fN-]_wEeJA1jiq?Ly]mluipy-XvSShGMpNLjB&k~?q;AIyGvSQEwJ
-::KK=tjq[p_)Ajxx1PZQ!/5snv4oU+MyoD~sBkZ5FW1~wW.hO1eNxJu4~fX9!]1uR.gmk[=o|H&Z_am!^fj7FnMqc^W($;]wtX~3UueI?-8w5N3i6w[a|_?{!c?hO9=
-::nX6{Xmg&7N;YPj(k_Km4y!gQ#Uj8Xrz~i5m@4ue;pCv,z1?Un|Syr)T1LpBeoFDM+0k{~5y0P5Lli.0(q-;|wQjz_nHr9O7Vj1Z~i&&!E!an;j;W}J_Z@{rPpON.K
-::.Ic6Jhco4mhcHJ)iG}x3G9g/Y]Zg./#mnnNgY,6;PG,3o+9-S;1PqBlhd]6$I8$0?ugt~|4,#xCod_p4cw6_Fw+Ka~M$N!Lux,abSEM(Ti6-XjsHxXNla0[gpCB1n
-::0000000000V|/ge[[sF!Fac,P{[1H]&7V##_dLTtt;;8goTPHVxBZhQHb3{wG]OS7ao8~x1ji&87@uT]2NHnd?nE~x34;(e8,W/lQajeODdR7MQ^&qJApEggYRkSk
-::N=#VK)C[1ILrpV;Mfn1MP(}WgQKLYQlASp9ytdjQ5dZVi&@uOlUzbD|#HW5eWL-6]V1ZBEA}WxGM))(2.d-pa/4)T2Nd^cb!qco_k)K0m=g2p0jnz+6Y,zH[WqPg&
-::x^Bin9Hz9!=.qT5OTCMVa6YwWNCWl_VKrB|hQS[4/rN(lY1xjHn/wVh(Q(PijG?7Qzve;{L76QNuvEJiQVD9-FgB$+zd+m(f&Dh;eB)KSn=k+|G?$^=#NO&4RC|/&
-::rotmV@o5?nLi+o^2ri,!DA]?kc3YxJZHv),a_]UShG?_/+TCU[U1heCY/Z^W{q4EhUKK_Hr/VM2kl3pLjJ)qd^vBawxU+qD([3L0&0CYR!LPjo0TYUAI,}1UPiNff
-::m.5ff[U.T0maKFl=dCq_/_uk|9ChDrNAVhQ9Vx|$Z@|F(su/c.{8m0o#@pBpn&ltsc-Fb$AKj=khzG|pu[VqjCxGl;U{Qam8MR6cE#.QjlgXU#px_[At}6Ag$m^d2
-::gHxGd7b]sQx^8zl/b|0ORUr)01wDfY_Q_A4?t3d4Z16Y7;nPkf-lX~/B5j4{$ulF4rNb0SK_h3fs64Liicu?ILt-Sp=Aj)Sr/XZE[oPh|dpc/kI9Omm.uZm;d32^r
+::000000000000000000000000000000asY4uV,qjhbO1B}E(yZzYyfNk00000QgCBabaH8KXF^RiWNB^]LvL-xZ,yf=00000QgCBJX?Md_Zf8bvZ,5a^a&pa7LTPSf
+::X?Mm&00000QgCBabaH8KXGU]mWmf;IQgCBJX?Md_Zf8bvWn}/WQgCBIb9ruKNp5L$X;=-?dSysqZe)m^00000QgCBIb9ruKLvL-xY.Mz1Lt$+e00000PGoXHb9ruK
+::Lu^efZgfLoY.|7kPGoXJY.wd~bVFfmY&&};Zvb.uZ~$.sZvbKdY5/Qp00000a{zDvZ~$+rVgPCYa{vGUQvh&PZ~#RBcmQ-(LjZ38Z2)UIVgPCY00000000005C9SY
+::&n$$(4ge4U/1B?17yudo[DKnH1wDfY_Q_A4?t3d4Z16Y7;nPkf-lX~/B5j4{$ulF4rNb0SK_h3fs64Liicu?ILt-Sp=Aj)Sr/XZE[oPh|dpc/kI9Omm.uZm;d32^r
 ::YfqyG5OvGFC[rgk^SDyLkDzhUo9vx,i;wr,qqO}@RbVPQ-Q3_u0o8OPicBKvDfr+]e3;o{rdY0UD={Spp@wGKh=tfp]c]kNQbmKO#oc+aWT1ZP?@NkA7(wb[N^^~{
 ::A@=URMNRQLsc2W7sY,eW/sHY~o6AN71=va;$)-3YE1mz.uvWR)wT|=l)vkiv_3wR0Nm{rs{M1X@o-8VeXD.TPE^8BC)x5q(1u+@,5gsc|KWbS4@aE.365zvo1ODhX
-::Je09F)O&J_W8TR{X([nURkV/qgz7=)tzBIj#C@2ek/({W6)g;6[5m_b($U&5UVOO-OJ5Yt.!hc(5Qo9qPWyP?1,B{cpkiK|u/rgY{vPL@_@_ya000000000000000
-::00000G8F(.[FM]K0Kfw}FpA9q0T}=QfF&F_0KkpX&gW9H91Z{gIXD0S0029a8zj/J91Z{gV@^V}005_l/#t&I91Z{g8(3cL0Klo52D8=y00000000000000000000
+::Je09F)O&J_W8TR{X([nURkV/qgz7=)tzBIj#C@2ek/({W6)g;6[5m_b($U&5UVOO-OJ5Yt.!hc(5Qo9qPWyP?1,B{cpkiK|u/rgY{vPL@_@_yaQVD9-FgB$+zd+m(
+::f&Dh;eB)KSn=k+|G?$^=#NO&4RC|/&rotmV@o5?nLi+o^2ri,!DA]?kc3YxJZHv),a_]UShG?_/+TCU[U1heCY/Z^W{q4EhUKK_Hr/VM2kl3pLjJ)qd^vBawxU+qD
+::([3L0&0CYR!LPjo0TYUAI,}1UPiNffm.5ff[U.T0maKFl=dCq_/_uk|9ChDrNAVhQ9Vx|$Z@|F(su/c.{8m0o#@pBpn&ltsc-Fb$AKj=khzG|pu[VqjCxGl;U{Qam
+::8MR6cE#.QjlgXU#px_[At}6Ag$m^d2gHxGd7b]sQx^8zl/b|0ORUr)0V|/ge[[sF!Fac,P{[1H]&7V##_dLTtt;;8goTPHVxBZhQHb3{wG]OS7ao8~x1ji&87@uT]
+::2NHnd?nE~x34;(e8,W/lQajeODdR7MQ^&qJApEggYRkSkN=#VK)C[1ILrpV;Mfn1MP(}WgQKLYQlASp9ytdjQ5dZVi&@uOlUzbD|#HW5eWL-6]V1ZBEA}WxGM))(2
+::.d-pa/4)T2Nd^cb!qco_k)K0m=g2p0jnz+6Y,zH[WqPg&x^Bin9Hz9!=.qT5OTCMVa6YwWNCWl_VKrB|hQS[4/rN(lY1xjHn/wVh(Q(PijG?7Qzve;{L76QNuvEJi
+::2m$~A4rTxV5C8xG(3;_rDzaV6RsYEEgJi]T;YPj(k_Km4y!gQ#Uj8Xr_?{!c?hO9=nX6{Xmg&7NX~3UueI?-8w5N3i6w[a|+9-S;1PqBlhd]6$I8$0?am!^fj7FnM
+::qc^W($;]wti6-XjsHxXNla0[gpCB1nw+Ka~M$N!Lux,abSEM(Tugt~|4,#xCod_p4cw6_F]Zg./#mnnNgY,6;PG,3ohco4mhcHJ)iG}x3G9g/Y;W}J_Z@{rPpON.K
+::.Ic6JBfp@~^0V!ak=fN-]_wEeSyr)T1LpBeoFDM+0k{~5z~i5m@4ue;pCv,z1?Un|Hr9O7Vj1Z~i&&!E!an;jy0P5Lli.0(q-;|wQjz_nPZQ!/5snv4oU+MyoD~sB
+::SQEwJKK=tjq[p_)Ajxx1fX9!]1uR.gmk[=o|H&Z_kZ5FW1~wW.hO1eNxJu4~ShGMpNLjB&k~?q;AIyGvJA1jiq?Ly]mluipy-XvS8B,SV_uj?qg2];|tyAb$--.?t
+::u|qvgqYN,_ogkIQ77Nve2uQC&xI42rCqo#rv7UWlHt(K[hTx_J/Cq)F8}^w[3o^$Nfl9Y+EBgF_zwxH#K&K+ts.MSuq7_^-M+^LkB_(u|gW;ls?,~f400000(Hw.a
+::09FqP|F3Zi000000Kfw}FpA9q(Hw.bz#&6Pzk7+i000000KkpX&gW9H(Hw.czz{@oziOr,000000029a8zj/J(Hw=ez@at_zr-Y400000005_l/#t&I.4Ox=Fm)U_
+::FQPF40000006[;C!/{wm(Hw=eI6]A_SCA^J00000005_l/#t&I5+T6e00000zv1Kn00000005_l/#t&IU/qFCz;=Bee_[{=0000006;8;uHni7(Hw.dfR6GF|35-x
+::000000D#]8L&q!b(Hw.eKo;.ezsOq~0000006?2o.22c0(Hw=ffLgLAe~05J00000003EunN!pO(Hw[gz{Ch5zwtRE00000007C#jjGoHG8F(.[FM]K0T}=QfF&F_
+::91Z{gIXD0S91Z{gV@^V}91Z{gd_|!XLvnd=bU|Zrb!l?CLvL;$Wq5Q~00000K?$PmRscZ(Pyk5+GXOFG00000Lvnd=bV-S-Z,p_@WqAMqLvnd=bW?$@OJ#XbVRB)[
+::00000Lvnd=bVY7sa)Qrc00000Lvnd=bVOxybaHQbOJ#WgLvnd=bW(w)Wnpt=LvL;$Wq5P|Lvnd=bVOxia)Qrc00000Lvnd=bVG7wVRU6kVRL8zLvnd=bVy.yXhdOj
+::VE^OCLvnd=bVp[$NMUnmP-[XmZ2$lOLvnd=bVOxybaHQbNMUnm00000Lvnd=bW?$@NMUnmP-[XmZ2$lOLvnd=bVp[wQekdnZ,2eoZUAEdVE|)QZUA2ZX#j8lUjTFf
+::V,qdf00000B?.~)IshdAa{yZaB?.~)T?t;8F#s|EHvldGFaRz9FaRz9F#rGnM_d)Vd2[7SZA4{eVRdYDOhZXT00000YXD]casX}sWdLjdGXOFGE(yZzYyfNk00000
+::B?,r0H2_&0EdV6|FaR|GbpR~[B?,r0GXQk}EdV6|FaS0HbpR~[B?,r0G5~b|EdV6|bpR~[B?/5,E(wn9FaR)BFaRw8B?,r0GXP_(B?,r0Gyr4)00000O8_v)QvhE8
+::MF4F8bpUJtVE}XhX#j5kZU6uPO8_v)QvhE8K?&X^bO31pb]u_jbO31pZvbupNdRsDbO2=lasYM!VE}9Z00000O8_v)QvhE8QUGNDZUAKfcK~4kYye3BZUA&uWdL#j
+::b]u_jYybcNO8_v)QvhE8NB~y=NdQCu0000000000O8_v)QvhE8Pyk5+L/zm]B?,r0H~@$^cmOQ_B?,r0GyrG.cmOQ_B?,r0GyrG.cmOQ_B?,r0G5}},cmO2/FaR;D
+::XaINsEdV6|FaR;DXaINsB?,r0G5}},cmO2/FaR;DXaINsB?,r0G5}},cmO2/FaR;DXaINsB?,r0G5}},cmMzZ00000]2/eo000004gdfE00000000000000000000
+::]2/eo000005C8xGBme,a[EQOB[D2a~AOHXWHcSTEdo^LeqK#VsTWme.1KJ!VBZo4WsknIr]2/eoRg3J4MGS.J0dypT=mT{q|8+$y[IU|&xiCNg5NZhMBmw{ci$xH}
+::0PsKn5bFv5bqN0z08juBGr(My!VCaai|m8!9Jozd0038u_DQr?4}}K.004^eJb]qoP)=U$4~6#t004_OIDh~E0ENj9gy/YO0E?h/ga7~lg}[Jl,#H0lR,f^{1ICGU
+::=!r$.JMa(K!~g(QQ.gjC01t$@0001sUJ#201K$J3iADT^I{,+almGw#zCb^#5XVLA2mk/8iw=d!bOt,MbztioiwK3ucv$~.{EbHf1Hn.L6.ZD35LsD/z/!]4Mfizb
+::[K9;&jYagwMf3y!002/pMetB-|Nj,PPyi5&1BnKUMg+lijYarS|8[9{Mf6aOMetB-|Nj,PPyi5&Mf_+t7=vx?0d;Xo!vurC1c]obgF65Zg?V1=|BH3#gT[qzb@7]F
+::;PU/A|NsA6USG-?Rg3Iaz7P=r5D(Ko)dbbBb^D.,2?&sKPyi5v#0.VNbqI[14CuA~|Nn!=2!Z}65daW&+Lvb}5CB$JY6!Y8KmZV4i~iB@YsVNlOb_[v4uilL1JHxW
+::|0~A?[aqDL^l5R;.@/EV01!LSbOk#~6mtTL)2GJ4UtYsii|m8!7?z~nR##C^i~9c-2v7hJjYa&3^E3#Q[K9D){}l{S01$=1c]HjF{7{WW[K9D){}m8W01$=1c@2_S
+::?n2x@Md)of6&;ea5RFCnP,#ma=urQ4{QnggPyi5xz;2|Tb[-@MUtY;?Rg3I{;oJW]G,ebri~5V&i]qw4BoHgZJs1N30DN|fbqH!0S(2,}6ovMFegAa~i^@uvBqUep
+::]Z[^?i]kFZ!T16L[QcSQL@k4cY8YAf_Tunci]z,aBqS[tnfH7o7,/#MeG!XPBq+o]=#T(Z|BGBCB;mB4Oe8Fe,XVx#|No18Bp__=BoK@oE5kh+0{{Shl?c=Mi_R@G
+::=-OWG0AF5Pi{+Ly2mp+sEAxxSiF70(Y8aVW^xXuLBoxv3g}{DCYtR[2);{.9d@YAp23h}g42$xKR3sqtrHxD]EJ#uRbR./$)1}DOB#X=Fr2^x}i$o-Ci(P{WY8Y9C
+::z;;VzbR.~+d@XNqd@XYCe2/^2=!twJ5R1l)^nG)kgZKh_J8A}5Y6gvbBrNl#i-m($jYK3YS(Q[YrT=vdi-m($i}z3~]J,Abi]iGv_7^ds&TVY)0{{SO7-LEAEAuP+
+::iF^mwgZ@mmtm!ZR|Nm8s@1St$Q/WfgRqTmH[K#ql!ViR/0001uSQv@2=sVgEgpL3J0LMl67ytkOY6e.0]NC(bjeX4XrHg(wi&s}DcocITQBaG-E5U=n7,PKeP,4C6
+::i$)B,#0.m7@2Gv8IE__W1MrD/;U4!^{BtLZMc|9pi)T}K_.}36-JovCY6e/Jr8_0ta^x(n[QYRKiCy&IUFeH^]n,qC7?#wzY6gSD7?QlzS[Wek-7E@!|NsAAUW?w8
+::$.+ExRg3I^@6@2_08?^rbqI]bSBv^IP4FwniGBE+gU0A/7-LrEiFNeR^.oi0i]eO,nfLhv..&uPgZL;ZPm5g+K#NWI!T1Af[EB|OFpEX^Q/ie_1IJM4)E;Pfi(gxK
+::&2O.OjRY1[=+eL10E;QRi^lY0E5|F=i]&A&0ssJuefU$0UHnpw3^j}y|8+$D(sK}m=#(Bg0F6T!?kW&b6gf.$atU^^gX;VO_,QD#O$a.|a}kSE6gf~7atU^^gTNR(
+::!E,A8)2MhlRs4x{3^H;tON)-8Idc@pGj}-Ra2Sbo{5!(QC29s+i|~zo,z=_o23d?vi}H(^{PU&123d_D,o,q}rHf4n?jI0$gTfd+)Q?|vbqtGr^=#2gJNI]1jZWx]
+::P4tUX6gg28axr(5gX;VO,?oss23d?qjeWrLrHgg-i~DK[S[Wffee{iWz.k6r]QDV,42ymEi&s.{@ihpV7?RWZiB0r7{(KgARs1{mi&kf1NjuRGgwp]306W5T9cl)y
+::i}Q^rsPm;223d?ni~IAXY6e.2b,PK[]QCGAS(Q@HeUS5|Y6gq[i}G3XrGvm2jdhTV_h(w5?v[C5=!ta;JJEGagX;VO]K?F=23d{0c?n-Z]QDV[42$z?23hl]Y6e.2
+::wRr#k|BL)crD^IQi}Q_WVE^OB]QD967?oOA23d?n]QDcoVE^OBi}?p+iFFK)y.5H6|7r$Vi}LfOi,,c)_f3JQ]QDV[42_u(|NsAk!WfBF{AvbS]QDV,42ymEi&kgW
+::dH);Zi&sxfUWplrK@IAzTgk!,09A|ZgX|Dfi_j_+^=_/li]55XMf{0P[X_5-P4re,JJEeSi&tBEGzpDP0,OuhYsfH,L?WXoL?Vk|2#rPoiADVD1B,rcYx+@A(}/A,
+::Y6e,Y_vddyrHf7UJHdR!JHd4vi$w]i0d,B@z!/5l=xh2Ii(gMy23Z5}1N.x)IaT;5EQ@JHjY9v@^.pVOiA4wl]NU6lJ3$n46pKX(Yx+@A(}s&,1N.x)IYsz;+Qfct
+::Yx+?!23Z69]QB,2Tgk!;09A|Zi$WBG?=/vv,/ZFOLlko$Y6e.0[{N7y]QCGAS(Q@F_tzk~23d_D=!]UFrHeuoi&keQK[[X3i,,Q&eduZiS[WffeF&(4Y6e/JrD^IQ
+::jdkdY_tzlWLKHhg6mt_523d?qi~94WY6e.2b@A&x]QB,2Tgk!,09A|ZgX|20W&vMtW(8l4s6zk{Q/XVGzUUVK5Lb+(g}_-Yy3iK[5R1/}i~0Zmqo^jw5NH4Z0Pt!U
+::Y5.~gjZOGb|ImfN4}^Nh005z]LjVwkz/zM2{1,Tai^Yj-_Tzf/tU~}0jZOSfY5.~gY8-]o6aWzab[?0#g}_+WGxkP?|8y#$utNY4g}_-bx)pZq5V_0V01+UL_Tzf/
+::utNY4Y5.SO|8[NT)1pNsG[.OZ01$=1briZF7yuBt=obJG=;[jg|D(_-01#,#0RRC1bqG]x09I.M|8[NT)1pNt0yFlDMf_=pbS8[pxI-LCg~[dpx.b|35V_0V01+W3
+::_2YW.xI-LCi]z,b{80bVi$)Z^z/q~!4ZK4D5QWKg8M/6i01(z87XT3Ghxq]hqr5_]5R1r,Mfhp}Q2+^ii]g7C$.+Q#Rg3IVQK6^q01#7FS2O?M[_.+/yXY4H5Q&/K
+::g}_-Yy3iK[5R1#_L.^yyqo^jw5NH4Z0Pt!US67Wq^+.7Rg}_+Op{zpy5QV]X5xV?r01&7I=oa|[|D(u!01&B${83j|Y8-]o6aWzab[?0#g}_)zp};1_5QV]X5xP^u
+::01&7I=/rtT|D)V|01,Fm2v&1!^C{7$|8[NT)1pNt0,m,HMf_=pbR(xmxI-LCg~[dmx.b|35R1#_ulN7|qqsu=5R1r,Mf^0z)Thd-g}_)qiw)R)01$=Abr!ln7yuB9
+::&jkvo|No=BLjVwq$cshzS5W_aUyH^GTgk!&09I.QE6QGr1Q9U/jZy[I@g4f4Uc+oe54Hpfih!6C01$_.3POYW5Pa?!Rg3I{?=2Db[K&fQY7kaX{}ohF01$+33]USe
+::!Ucoi4~j$u[Q4I5LWBAceC=Mz!(QsygX|EEMetUO[oErOQ2!NFPyi5v#0+dii]^|^gW(^g/Q}kcgWwN}L;R7O1TsQ{_Vf5NUdh8#R#&JJGyjV/yNkxb=m#YM0RaJP
+::(?M[!C4YZ]{{z4@)2K]4&E7=8GtR.r2,Jq-GsrW}Gs=k!yGMin1boL|UR&Rei|kQRQ!~JcP54&cMf|z}0RaJ5i#(mg$HC|aBf[Lg8/i#!e}8}f1Hd!bi]IX^2P493
+::$Qz5pC4YZ]{{z4@$cw@j=m#UhYw#P3!6koxfByr)Gw^SnGx0Omi]hw}GsiQ^!N3r~$p|yZ!NLfOMf[|$i(gkD(NIu241z$3Mf{7)x(Z-J0fYDie1?0MTgk(#i}AVW
+::5daWZi_M9Z{{R1K5MPVV=#BpW|LC6n|No25=mP+$|Ba965daX2,63gU|Nn!?5P|=o0001d+r.#PV,daC=yU&6|6hyNxrh;~5MJpz{{R0|R,Uhuh!Ox0SBuu[DgOWe
+::yO00@05kuK(gggk|No2654Hp_ih!6B01$_.F-qd,5Pa?8i|7#m5R2C6_ThU[i^YlG{{R1j?kx)8f60r]=s]De{|~kVH/RCm5(#g01UE/6{}6obUyIhc=n)+AUR(wH
+::{r~@}i|kR0MF?-@i}8yHi]2EMgWwN9SBv^M90.YB{DJ!&0RRAY1T);vOi+mb1UXRu6;AOJ5QD[Fh4yp^i_R@J=zRVE|BKJ+;Np8ugTwH28I4yEi^hq0{r~[i#}JFp
+::=,s]8|AXrgb@1vs2#ZDhi2,afKwn/4$.+Q#Rg3IVQBzinbqH6B_imZkUHJCH4|D_G!0Tj;NALr~JI8h&i_a|H=.(SS|BKU(OYrCp{r~[i!|,&bcj${;^?0fz!~XyO
+::gZmJ4Esa;I1JjBEJP?yxGye~]$b_Uj6N~W=wgO5!!F2{lPKEY=[{4r{JNb12E7?!]i5[].UR&k-1OQW3SBvuKwfz78i_Ka+5daYAsr?+{Y6_zN5daWdi^Yk/{Qv,x
+::!2JLJi^YjI{r~[q+{D?Rh5Y~jgU1kq?j8D#i^Yka{Qv,xoc#a+UyIhc,bx8^UR(v6{Qv)|i|m8!5TU3/01#7FGuy{S]dJBL0Eu1ri}HzG{8x-lg}_-by3iK[5V_0V
+::01+V$]Z+/(s6zk{XaE2J[M/+SQ/kjdQUB0|zz?9v0001@#6tiOg}_-bx@~st5V_0V01+VC]Z+/(#6tiOjZOSfQ(VURfB,phb[?0#g}_+Pp~yo35QV]X6uNX601(z8
+::7XT3GH}n7hqsT+55K~rH|8[NT)1pNsHKEKy01$=1briaU7yuBt=obJG=nnJ$|D)+901#7-P4rR!bqHz#|8[NT)1pNs1vB;W?jI1Oi$)l}z/q]y4bVdX5QWKg8M?Gl
+::01(z87XT3G(-_BOqtHVD5R1r,Mf^0z)Thd-g}_)tiw)R)01$=Abs4&q7yuBt=obJG=&Vuf|D)J]01&7Fi$)ZTQ2+^ii]g7C$.+ExRg3I{?@~GlB51vdXo3H61dH;j
+::G3XT&003$rXzjJSj8ahO_w/,D1$sv+#,Iz,iADI0Mc7b,)pt@{F=^~jRs34$bN?JTY7mV[=ulSw6/x0F5QD[FUdh8&i|m8!BvV#bGylg$[E_yH0EvD0i}Hzm]of1]
+::iGARSedLLK=!t#o$3[&?fB,o6$#fBF5K)9hKmZW_6/x0F5QD[Fp{PRu5WDCX01$=1brHJI7XT28&jnVZ|No;@LjVwH0002-Y8Y2njZOGb|ImfN4}|Oh005z]LjVwk
+::z/zM2{1,Tai^7Ss[(Es$tU~}0jZO4XS66BrXaGO}5dU[f|ImfN4}_b@005!HLjVwkz/zM2WEcPti^7S2[(Es$#6tiOjZOSfSO0bNXbFG.0RMIP|ImfN4}]pO005!X
+::LjVwkz/zM2tQY^gi^7RZ[(Es$+I$IeSB,{FQECPMb]QO)g}_+Lp~yo35QV]X5xR6301&7I=nnD!|D)u501#JJ|8+reb]QO)g}_)(q0B=75QV]X5xRsJ01&7I=/rYM
+::|D)+901#J=P4H3wbqs0)|8[NT)1pNs1vB;W?jI1Si$)N?z/q,v4Y+&95QWKg7P?GP01&7I=(JDl|D)7=01&7Fi$)NM|Iv#[{Dr_DBa02tLjVwk$#oXGm?2,Mi^7SM
+::[c/j#(^e)ai]z,b{80bVi$)Z^z/q/w4ZK4D5QWKg7P?$f01&7I=vMIm|D)J]01&7Fi$)ZXQ2+^ii]g7C$.+Q#Rg3IVp{PRu5K~q(-l&svUHn(z_GvrB6uQtC01(z8
+::7XT3G7x4f8qo^jw5NH4Z0Pt!UQ(Wvi{89hVg}_)zq1ZzJ5QV]X6uQ6|01(z87XT3G=kNdjqu4^L5LZ^Jb]QO)g}_)LGxkR70,mvDMf_=pbSH}qyh8vGg~[dpx;D8J
+::5V_0V01+V~[Bja!yh8vGi]z,b{8Lc?)O.-kUR&k.Rg3I^_2YX~0CX9F_2YY00CWU1!0Q;QbqtGD2;XQ8|NrX@|8+$DRS4-+^W&D~!UzCWi|kQTi_t99R,6OYi,p2n
+::#t2qZQ2!NFPyi4Eb]MKshyVZpY9vus{}ohF01$+37&O&BjYcG1Tgk(!i|m8!BvXsoiB;eojdBQAivx@!i2{vNFzELU004!-c@pZti^Yko2LJ$8{}o)N01&5-{Ec&!
+::S(alm0ssI2i9!U8x_-S)0Hvj-rHeyUi&VFEf|vjR0Evp60001sLr@@2iGrX2000lS1t?rO5Q(1M0000Fw,[Ld01&0Sr~m+}Gr$W(REtYkiAC][Mc_14MevDD]icm5
+::98drdUtU|u!(Qsyf$SIp002{q!i|-2|NsA1SBuDrMeOK2|NsAul]p/7|Ba38{r~]y[BaV+i|~zo&rn4=b[/1|jqLsZ|BK$MtE+4?jeXp!tE/Pn{t$dE!R_c$#=-nO
+::E7,x$]o!YzRm^Xa=;WIc|AWI2gYE&!@u(K!iCyrEUG$4h[P,rc4pUK$Mch#6gAD+xgTxGtRm{dj9o(G8P2A|W_Tzfm9aK/N5RFC5Y7kJ3h3x)R{{zNQ|I=il7ytkO
+::jZP4YbqIsR42celKrm5i0RM0p{}nV+01,E-i}/O(@EU}$P,@xcgTxGI?/M1(|8@yDbqxR0gTxGtg(hC@|7ffL002;_brAp4gTxGr$6sDs$.+c)Rg3I^?^7ql08?^r
+::[_-9KS85Q6b@l1;jZOrKg?@S]|A|fTUp+W.1psvxiyc&[01&CZc?e$YS5Z,])}Tne?o$wmjZM^);oy5tiyc&[01&Bu+K]fAg@Rq||A~F,Q2,154vj^VgTxF^jfHsr
+::|Nl^vT?bz5i$)N{4uin^iACg&MdVP8Mg(mkME)E(jYbrWmBju3|A|HPi]&Ap{r~[smBju3|Ba1]{{R2zQ~m${jkSpW|No2E1MrK]=xhA{|BXfvi_P)#(gjkf|No0k
+::[Qc?yCH4RRi$(~&#xRQjJpcd)0Ci_fAV2]Riwz^|01#LIb@}J?iB1HA#t2sb)}Tneja9]rja?f!{{#2v&=!QSjYXu3+=.Uwc?e$YP&F[lO~mLB_v3n|jYYIjR{zt3
+::#0.r]+C2cdP?qFn{{R0^|I??^@1RJ&ivW#{i2ncoEAfeS^(ops1pss#Jpcd)0Cg&-jYas2)NK-zc?e$Y=+)5[|LYb}jYarSjg]T0|No7Rc?e$Y=pgd{|74,U0001s
+::P56s.2!p{CQEC8,4vRoA|8N.p6,N!+5dSud^?F~h{{R0^SO3$4#0-Tc00030b[cyr4FA+E#0.sv#Qp#OXsiGL08syR5dYJI#0.naUtU|u!VCaai|m2ypaB2@gZW(2
+::5sO6#YFC3G0E;NogCGD{?r/U_000C4bS!~7000F5bPRzy000I6bObZW?oARlQ2-n_P?qFP{{R0^|8+rHy#4@G?lTfLQ2-n_P?qFP{{R0^|8+rHjr{.ri]z,b42cLc
+::z{$c009A|ZR,Q8ESB3U/b!gBS01#IH6;|/R5LsD/z/$Ejst5o8gFTQ!01yCmRe)J#KmZT_bUy!e6l9@o00030br8n|kU{^u0RR91R&q.P01#-]0002KltKUyqntwk
+::5LW,cWKaMQi$xrR#2AS&Gr/RBgC(qc01yDb02u&f?jR5[5V_3w01+Um?i^[$bsYb782[z@S62UZ2?/MuUR}Z&09A|ZQG;O509T8B40KS1|8z_+J(.~G5CC,TgFTo.
+::01yCmI.#6H01#w51sDJT0Cg/AltKUy|8+re6;|/R5LsD/z/zgE1X{V2LjVxy)E0!Wp^D[a5Qzsf!0QmXjWPfb=),|t|5yKY2?/MuSzW?i09A|ZQG.2[LI4l|R,Q8A
+::S9Cpv^H/R-oI@N,WIF{I0001WE5DRN01#LIHvbi1Pyi5FS&tuL7ia)h002.|{}otJ01$(F0E5H~Gr/Q(xdAf)5a@9t|NmD1(|h9zUBUzaRg3I{J(.~G5CB$.bqI7c
+::h4yqXiv~LdltTazbta,lLjVwDI|Ud3004CuGr,(eLI4n?ltTazqnJYg5Tl$!01+d9xnwf{5a|5q|NmD1(|Y1^1OQcw?_^,]x.$R}=/i4D|NnIii,,QA|ImfNbuKvt
+::kU{^ubR/;iltTazbR0Pam^q/&brhkTLjVwDI|Ud3004Cci8Yu,01z|4URhnj2mn=!?_^,WbqIy^bUTB63/=XBgFTQ!01yClEQ39mLjVu}bR(a3ltTaz0CXCmoI@N,
+::WIF{I0001W3^CTLLjVwU1T);v5V/C801+U@=?Px!bqrSj(|X;x!UzCWi|m8!41-z8LI4l|Q(x-05Lb(v42xa}iAD5^Mi7Zb^=_pqiADT$UxR&J0CZV{eGC9}Q=ybY
+::01!Jy1a)P]J~=([LjVwUKcSpM01#w51sDJT0Ch2ge;T2OD}#R||8ynj;]=!&|8[L}RrHI@|8[B2ll=exGxk?hcO@H6AW#4hi]l5~xo0#05a^h$|NmD1bqxP@2?/N7
+::#0-0vTgk(!i|m8!41-z8LI4l|Q(x-05Lb(v42ymQi)UwcMfi)G5Q#;nbUTB62mo|7gMADDbT6TlLjVvv26ZN)oI@N,WIF{I0001W80cID0094W{EO3z(/ND!=nDM,
+::|1.er7P$,G01+Um=l}m!|8+&ibqN2]gTxG9UR&k.Rg3I{?|9e/S84!^Md,o5;WP)9{}m_u01&5s=!3?EiADUsAVB~SiFNe5d^n,aY7kccH~$rAPyi5v#0.VNbO)dS
+::3^JUE=R5m!9E)Q/jZNr[Md,u12#H1PjYa&W=-yxL0E^VJ18M^aYt9(f!H5;B5Q$Cr54J&9iACrSwm}1pP3Vb5@2SeIQ0S.u004_9]o!VP5NLE301#J-UF_oAXixwU
+::gTxGlz/yzP]J+.iWEKDrSN|1gPyi5v#0.VNbq0mobOMX?Y7l5t761[e{}pIZ01z|DgTxF$g}_-NJK1(ui}Pv^XhaqO5Lf?dXixwUgTxGlz/y@M_vP^Xi}Q/_^=8Qv
+::|7.pj$3@()0001sNC=B@1S_(sMf{0Hyo34wbqP[a6)mpq5bF$$K?;,WO}yw)0{{Sx95A8WLjVwkz/zV56d3?zxhxp~5a;o(|No=hLjVx})2KX2761]7znm5T5Q#;f
+::jYZH;{}n7y01&5!)2GUXf$0FiX+1|Lz?Q6~9mxOy0Eu;DiABVXMf]~SeZ1)]0001qMc9o-s8EeX,ojr#Q2!MiPyi4!z)8h-MXF|rMXZfQ$WV;&s8IhEFi.#xGt!H7
+::,o)utKtc}y^wf)EO{gn&$cy@?i&r~&,c)mEXvqKo0B8WfX)~}x==cNx0E;oRKv0WC_2RG_tQP;f|8@{aw,YDbS5r{_G|i|N01#-M82}J!K?u~,{}p6V01$+3FkfC;
+::$._BP@1StKi$Mf~P5l2?i!m$4i&kfLP4ve^^#glP0E77dbqP_b6)mpq5bFv-jZO4W=pF)900YKe$.+ExRg3I{??!Il3{#6+2v(;RSBrTBgUSDiMfi)F2x?ryMdX9X
+::|5]{M!2wFq=!s42iAC],z;2L,1&vtjcj#AEiB/)6Mgjl/|8[9^[QeCW=s5xa04v6e$Q#!q&7gj/jZNfr2k0RH008R]gTMiU)g0FW=yU+800YJo,HTdE3IYHCUtU|u
+::!UO;Si|m8!3{zHDGr+_ai|~m?{EOI(M-A,X|BKU$#]~Pz004{d52W$|1NMnk^&qx8H~$qRPyi4-UkrEias[j^2zTs[P5cY-i$@@l$ctV0iB0]2_9N~MUyH^z)^UN2
+::!(QsygX|=WMGTA4Q/S]+gTw!cRrFSa)Eo{D=rhTQMfg{VP2^_R_~ZvbiFNRc_H4/Jg}[JjhX4QocLp=SJJ[!Ai&JCR1B,[YNsGse,62$E004^!]o#h5[).l_0R#X4
+::GyfGNPyi5&Qw+ns2#HPLiB/S=RpfW+as+fUcj1dw{0sOqzzgt/Lj/LM[Qq0Si$)0{1p[#8i]z.G52VWh3tij/$qP/3J6.sRUHpq)=!s42a,uZeJIiv3iFNQ)|8+&i
+::bqN1/{88xI0ssJsUEo{+bqtA3-?6.&bqI]{|8@-J=)-,_06W&lBzFWm!,U,rUFeHN^={EaY5.X|UEB|a8vp;QIYr;Pg&SV&|NnIi|8+reb@{f{j{,PyUtU|u!UzCW
+::i|kQRQ/S]+R#&Bl{Eb8ZiADG_^A~#5z/rQ.UHpqf1dT}l+8-(A|1;v/Bv1elJ3|O}]9&5cLj/XT|I^CK{|kEvJAL@a,o$2VGt!I4^w$R$i~2Lti]li!JHc_XjYI!C
+::^/sv{#xv6Q]Iu-z!duD01OQcw@2A;lxc~qFfQv/4JJELyas.9Ia|eUK029(c1&v1S8^_|D2mn=!@1StWjYa5I|1|)X01#0B6$nrO5RFCnGxktcjYa5C{}nh/01$=1
+::4~Xyp002{0i#;G001&Bu{8nlNTT[U|Xrvhc5dU[f|JQ}UcnUdn{124{EI;GdR#S~d{7^S9z!@A#|8[BP,S]50004!-cpi(I{5!]W1dGP(4TJa)a|LP.SnC51x4?qj
+::C^n&ZY5.G?Mf]}xXz(?T5dU[f|JQ}UcpHmF{5!]X4TJa)a|LP.Uh4x7xA10)H7Y/=5NZHw2#rPXP.-Wk7#aW(|8[BP,I!$Oz;4.=$]SV_]l}Pn{#bV+IYsby8[Le?
+::5fM2?]mhw#1vy3Va|DaX?jsNO[QY3KqaZ,45Qz/WKmZW_b[=}kKu_b?Gr)TS!(Qsy54J+Nf$WR_0034{54J+Mi}6qown7b154J+KP!G033s4WXLJCk1wn7O|54J+G
+::P!G3422c/TLIhC&GL40F|NsAJFd6^5YCur_6=YBV5QD[xjYahTH2]]X5K#XW2v7hJjYa&WY5;Kz]icm5I8Xo)g}_^uY5/0}R&!u^g?@V^|4{#R{Qng]Pyi7Bb]MF+
+::{}n)_01&7DUdhA&B~)xV5dS4@Pyi7BC2(vx5dS4~Pyi7BC3sK)5dS4aPyi7BC45i.5C8xG0000000000000000000000000000000000000000000000000000000
 ::00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 ::00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 ::00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-::00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-::000000000000000000000000000000000000000000000000000000000000C{O@Z0000000000EK?jgkWc]s0000000000000000000000000^+q_;8c^fMEKvXe
-::Mo|C(R8ar_a!~,PkWl~tno$4&v{3,6(_|(Y;WT@s[=,W+1X2J15?fyFCQ;-ZK2iVxOi}/;Vp0GAcv1iWgi.)ikWv5uno;A(q,4F@u2KL1yix!F00000^+q_;8c^fM
-::EKvXeMo|C(R8ar_a!~,PkWl~tno$4&v{3,6(_|(Y;WT@s[=,W+1X2J15?fyFCQ;-ZK2iVxOi}/;Vp0GAcv1iWgi.)ikWv5uno;A(q,4F@u2KL1yix!F00000YXD4S
-::aztr!VPb4$RA^Q#VPr#LY/13JbaO]/azt!w0046UOk{FLWpqSrY+D~lWNc,sc?qjgaz|x!P/zf$Wn]_7WkF;Qa&FRK004jhOk{FQZ))FaY.|7kf(ffpa!-t(Zb[xn
-::XJtldY.LYybZKvHb4z7/004#nOk{FVb!BpSNo_@gWkzXiWlLpwPjGZ/Z,Bkp.T-Q@Lu^wzWdMZ&PIORmZ,,m2bXI9{bai2DO=WFwa)Ms&sR2&OQFUc;c~E6@W]ZzB
-::VQyn)LvM9&bY,e@wE;3aQFUc;c~g0FbY,Q-X?DZy]Z_zEQ+P5Tc4cmK004vnQgm!VY/131VRU6kWnpjta060wY){crWk^XVZ~)spQgm!dZfSHuZgXi;baH8KX8^0p
-::Qgm!dZfSH@ZfRq0WMxxya&pa7004CaQgm!mVQyq]ZAEwh-yqi|Y,cA(WkzXbY.Dp)Z(Yb,WdPs=Qgm!oX?DaxZ(Yb,WkzXbY.Do+qX&DiV{?U]ZEyepr3YVkV{?k4
-::V{LE&&@E8|ZDVb4007VjZDnn3Z-2w?.UoAZa${|9008j]b9ZoZX?N38UvmHe1PFIyb8Ka90000008jt_08jt_08jt_08jt_08jt_08jt_08jt_08jt_08jt_08jt_
-::08jt_08jt_08jt_08jt_08jt_08jt_08jt_08jt_08jt_08jt_08jt_08jt_08jt_08jt_08jt_Zgga9Y&XMMYybcN00000_dYzX00000C{O@Z0RR910000000000
-::C{O@ZC{O@ZC{O@ZQ,dxacyvQ=ZBJrqNN/azE[W)M0000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-::00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001yBG009610x$|N5.=JtA}}g2GB7$YLNL5C
-::!!pe?.ZJbm6,C@,q&]WLy+@o!(ouTl0W}6S6E!3@G(MgpL]V.0cQt}Fhc&Qnt~I$ezBS7=;u(j&]+(+ED?gPZJ2pr,UN(hqZZ?/1kv5z,p,F5I(]GWk]+?=GDK|7X
-::IX6Z)XE$//cQ=GLnm464syDYc/5X|x[HhQ86F43@BRDWPWjb(=R6AxnYdd(5nmeUCsynwk,E_}n=R5Q}BRwxYMLknJe@5(oxjo7~3qBD)Ek4,j]gj7M20tx7I6pl;
-::N;UjaZ$ElJe@N?rlRut6qd&}e?p&8C_#&5x03ZMW9033T2rwQnDKIWDJ1~AQq&agQFflbTLNRGEbTN4_hB22ht1.4QyD_Wy(oSCD.!belC]9oLI5I]tTQX+cYchB/
-::+H3.pCo[AcQ8RxtqcgHI!ZXY?;1^Lz{4+kL7Bn$5Iy6EwQ8Z~ZsWi;r.!uX?6,Ye~mo?mO$2HwG;24F4AvP{HIW|5vOEzCNXf|#)w?HT)7dIg{CO1bnV?fL#dpEf]
-::$2a{q1vn2lA2=/IUpRO/fjEjdnmD33-c[Gl]f?+E1vw2lKRHf0S~-AnZ#jlJw?iT)89GfmfjWvhnL466sXDki,E.=k4LcM(N/^(hiaU!umpq^6Aw4}kXFY?Gi9KyT
-::dOn/!(]{|aLqEtr05AXm7ytkOGB8~,#WB;|;S^#?2r@8h06-i$d/kCdWHD$lq&o{9v[yIf#4,e;+G]#K;T30q]fCM~1TqXV6fzt#Br-]AG&_FgL]4b=R5DyLfHsUa
-::m]P#~ur|Cl$TrkA/5O^w^&/ML5H}n,C]s}WKsQV_ST|&ha5sE6h(Plspf{{HxHrT&ggA]ilsEtY00000000000000000000000000000000000000000000000000
-::00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-::00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-::000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-:embdbin:
-::O;Iru0{{R31ONa4|Nj60xBvhE00000KmY($0000000000000000000000000000000000000000fB,mh4j/M?0JI6sA.Dld&]^51X?&ZOa(KpHVQnB|VQy}3bRc47
-::AaZqXAZczOL{C#7ZEs{{E+5L|Bme,a00000P)=U$WQGI+0$agf0000000000[Bl6&3jzWj04e|g02&.Q00000P!IqB01yBG008_H0000001yBG00IC21][s600000
-::1][s6000000Du4h00aO4Y,^#R0RTV(001BW0000001yBG00000000mG0000001yBG00000000005C8xG00000000000AK)BMFao;0000000000000000000000000
-::000000B_]RhyVZp000000000000000000000000000000000000000000000000000000000000^-S74(/S4c000000000000000000000000000000E^7vhbN~PV
-::uqXfk01yBG04e|g00aO4000000000000000AOKKcE[WYJVE^OCAQ1on06-i$01]NI04[Lk000000000000000KmcICE[[;8bYTDhMFao;0AK)B00sa606-i$00000
-::0000000000KmahnE]=jTZ){&ehyVZp0B_]R00IC207d_-000000000000000Kmag8000000000000000000000000000000000000000000000000000000000000
+::2m$~A0&iaJ5C8xG0000000000000000000000000b]x{jmINF-cmQB00RR916aW@g01yBW7yuan7!Uvu00000=_jEh6aW@g01yBW8~^~vG!Os~00000jWPfb6aW@g
+::01yBW4ge1TR1g3V000000W$y+6aW@g01yBW4ge1TWDo!l00000WHSH|6aW@g01yBW7yuanbPxa#00000x.$R}6aW@g01yBW6aW;fkPrY6000003N!!]6aW@g01yBW
+::5(#nbs1N_U00000XEXp16aW@g01yBW4ge1Tybu5o000003pD[_EC2uifI;KebQ}N?000000000000000000000000000000000000000000000bQS/,2LJ#72LJ#7
+::WEKDr2mk/82mk/8R2Bdb2?;{92?;{9L?2&L3IG5A3IG5AG!^653jhEB3jhEBBo-V=000001ONa4R22Xa000001ONa4L=]xK000001ONa4G!-04000001ONa46czvw
+::000001ONa4BozP;000001ONa46cqpv000001ONa41Qh[f000001ONa4]c4UQ000001ONa4]b_OP000001ONa4+D.{^0RR911ONa4;P.o90RR911ONa4v=sml0ssI2
+::1ONa4lobFF0ssI21ONa4gcSe~0ssI20{{R3+D!?]0ssI21ONa4bQJ(+0{{R30{{R3#1sG!0{{R31ONa4v=jgk1ONa41ONa41Qq}g1poj51poj5;P_uA1poj51poj5
+::#1#M#1poj51poj5q!j=V1poj51poj5WEB7q1][s61][s600000000000000000000000000000000000000000000000000000000000000000000000000000000
 ::00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 ::00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 ::00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+::000000000000000000000000000000Fi_,iQc)Z]Y,7FJgi!zhmQerzq+_9?xKRKA)op~a=urRw^E7+/1X2J1AW{GTG,SQnN?Ts.Tv7l4dQt!Ym{I[$I8y+stWp2~
+::wo)89!cqVL&u+aV+=~ff/8Fkp?QVpz^EG=;1XBP24pRUC7,hZMB2xeWEK?jgL{k6(00000tWW?|0000000000qEY|=08jt_0000000000000000000000000Fi_,i
+::Qc)Z]Y,7FJgi!zhmQerzq+_9?xKRKA)op~a=urRw^E7+/1X2J1AW{GTG,SQnN?Ts.Tv7l4dQt!Ym{I[$I8y+stWp2~wo)89!cqVL&u+aV+=~ff/8Fkp?QVpz^EG=;
+::1XBP24pRUC7,hZMB2xeWEK?jgL{k6(00000ZvaeWaztr!VPb4$RA^Q#VPr#LY/13JbaO]/azt!w007JZPIORmZ,,m2bXI9{bai2DO=WFwa)Ms&Sp.saY+NiubX9I@
+::V{c@.Q,@4]Zf5_hdH^shaz|x!L~LwGVQyq?WdMo,Ok{FQZ))FaY.|7kOaxMNY+NiubU|+(X/XA]X?Ml#fdEWoaz|x!P/zf$Wn]_7WkF;Qa&FRK006=TQgm!oX?Dax
+::Z(Yb,WkzXbY.Do+Ljq28Q+P5Tc4cmK001}zQgm!mVQyq]ZAEwh]Z_zEQFUc;c~E6@W]ZzBVQyn)LvM9&bY,e@0Rm2RQFUc;c~g0FbY,Q-X?DZyz6DZrY,cA(WkzXb
+::Y.Dp)Z(Yb,WdPR#Qgm!VY/131VRU6kWnpjtjQ~t!a!-t(Zb[xnXJtldY.LYybZKvHb4z7/005Q&Ok{FVb!BpSNo_@gWkzXiWlLpwPjGZ/Z,Bkp0s(5RLu^wzWdLq/
+::WNd6MWNd5z5CC([a${|9000XBUw313ZfRp}Z~zVfZDnn3Z-2w?4FGLrZDVkG000jFZDnn9Wpn[l5()B(b8Ka9000UAUw313X=810000pHb9ZoZX?N38UvmHe3/=Cq
+::ZDVb400000Utw&+WNCH+0svoOY/0|HYyboRUtw&+b7,V/1]{1Sb!=?8X@6er2LNATb!=?8c5.b12moJUb!=?MWo.Ze00000000000000000000000000000000000
 ::00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-::000000000000000000000000000000|0S|f005AX|0SYP005AX|0R.9005AX|0RM]005AX|0Qx!005AX|0Oz6005AX|0OC?005AX|0M!Z005AX|0Uv3005AX4;Cd8
-::00000Q&HmCAcOh=bUcIl1a(;~jTKrm002yh!$mR4NR5gh{{R0$xCQ^K0O$fH002mh4LdUc0O+2V002mh1[ABb07!_g?jwW7Tu=Z2NQ1/6xB(nF09)V5kdTm(kdTm(
-::Wk_zzB_]R007#2KU_dI{G15qjNHG5/girtgkdTm(RY.~DQ&H&]G15qb;nTy@?_-LH0Z6(MiD.c$0000@jYK3cNcZtbjZ7pcNV[H{x{M$I002l2ufj/WdPgY6TFq85
-::NCD8g2mk/8NQp!wDCo+q000jtL@l2D5d&nzUHHkvkdTm(kdTm(kdTm(MKQ[jiv+?8jRXLR!a;3_!RiM=f#ClB{{BJ1!U&!l0RaI4YtkD/F~UKKz)K,l5HZk2G0@&t
-::2thH?L[~fZi3EvB|G_Ov_2=/h!/p}WR!E7~NQ1(KQ&H&-NQ3Ms=t~/^0ENJL5lDl@C_gI(NQv27Ug/JT002mX#3+.{!/p}WkdTm(kdTm(kdTm(OpOI/JOBVOzz@;,
-::0YQos5Qr23NdLe{gZL12@8A^dRWZOwiRDOx;nTy@?;|wS0S^qzBx})9gW@a06cmUQ0Z9MANQ3wgb@eE+kdTm(RY{4/F~GSA0000/iRD35L5b8@R!oV/Q&s4=NQ30@
-::NQ1;HO[.1)jeI0rNXJAZKmY($0Q0NIL@k?Q0000/$3!GZ00000NXJAZPyhe_0LMfmSPXyw0CWpM4.f)m5e0[V002mf1&ojF07!-vbs9,G756d#07#7u1~UKv=$jG&
-::07!_iWHA5$MKQoJ)#J$3AOHXW[Ikp40000/jZ7p!|ImfNbq6uP?1F_{07#1k7&?0;NQJ;48c2/5+G_17NR17;G5_SRP!a$DNQnjcFaQ8ZjZ_E]MKQ[pi&cXy$3!F_
-::00000NQqP=C^&U!0000/jTPc70095cg}_,CNQ)uvFaQ8Zg}_-hNR1WWG5_QbjSXlr008Ly5dZ,4i3OH0002mhR3uPEG09AeL@lQ]iBu#YNQ-D+K+MNl0095cg}[Jl
-::TL1t5NQ)uDFaQ8Zg}_-hNR1WLG5_QbjSU;!008K,5dZ,4i3Msf002cX$-_sq002mfOe9cDjYK3]|ImfN4}=,1|Nlsf1$Qt207!-vbs9,G6=5/}07#7u-A#nC=x.4K
-::07!_iSTFzpMKQ[miQq^y[;[wJBvAj,g}[Jl-W!ClNQ)uTFaQ8Zg}_-hNR1USG5_QbjSZYJ008JQ5dZ,4i3NHv0075CBp@6+002ylOe8!?iP,XV0000/i&cX@|ImfN
-::50$_3gM1_N01vj;bS-4W1s5/@07!-vbs9,G6^7Ci07#7uN.-Qc=.(^k07!_i^&8qeNQ-D+NdM4CgM1_V0CX+#iv;EO002mZz/zl)jTO8x002mh4HYo}0O-a]002md
-::1?.LO07#2WBvAj,NP~PNKmc@vNQ)sxF8}~Yg}_-hNR1UXF#rHajSb,1008K95C8y3i3RR1001&4NQ-D+K?yH4jb.48,jrv.L0nzKkdTm(kdTm(SBckFNQur;Oo^ut
-::gX~a9iv;cV002nGL@l1}0000/$3!GZ00000$3!GNAOHXWNQJ;48c2/5WH0~#NR171FaQAP2oL}ONQni}E(u?UF~Bj?$3!F_0002-LAe-J002mhOe8[6)1pNt2Qk3u
-::&K!iXNQ)t]E(u?Xg}_-hNR1VrFaQ8ZjSVO/008K{4,(p2i3L^J002mhR3u16G08;Sz)|WsBtS[sR3sp}41fRt|ImfNbhAi{1&EC807!-vbs9,G6=]U407#7u/x7OI
-::=ywkQ07!_iU[iavMKQ[iiTFr~[;[wJBuM|zg}[Jlb]rhWNQ)ubE(u?Xg}_-hNR1UaFaQ8ZjSZwP008JY4,(p2i3Nf#0075CBp@6+002ylOe8!?iP,XV0000/i&cX+
-::|ImfN50$_3gM1_N01vj;bS-4W1wSqT07!-vbs9,G75Og!07#7uQZE1i=/saq07!_iAT9s]NQ-D+NdM4CgM1_F0CX=&iv?z8002mZz/zl)jTLh,002mh4IM840O-y~
-::002md1uHE805Q[@i&cXy|IkQ.#88RYTV7wokdTm(kdTm(Q$/b.MvDxQLyZIpMTy8k!RQAi{{H]{L4n_^0RaI/Yrq?pF~CEO1OP/d!bFL~!RiMk{{H]{f#LxH0Rd~$
-::8!]yCjT__p!olhXL4o7_{{H[f/sF5x0c-A5L]0Y$iOWGT)=pIQiP|y4MKRdH!U#dZ$OuF-$T8Z&zz{))(^pr7LWu/CN(mu0gZcyyg?V1=|69Y5kdTm(kdTm(gZW#3
-::6hX&T00000xK{uG07=II00000!(OL$;v~|LRzX!wiN!&wO]M7_NQu{0Q/Ew-gXHi@f$U&c004]/f&,Ud1pstjf&,Ud1]{$cF~EWP000C44~4[4002mhoFs$,002md
-::_AChlBrpL007!}2=/s,#07!}2NQv@2tQi0RNQv[HW57(^!$|@~iP@k05a{-6002RWT?wa9&js;a004pd000F5iIgNT0RR9[jkF|$0000/jkF{&0RRAX4i6AV1P?8}
-::Bs2j40P8nMjZ7p(x+1/W0O)!/004],O]NX^)hm@!Bt&S(Mg-&&B!mC}01yBG01pw2Bs2j40O,DU0050k{4vsrOe8?y4[_}J1Wb+gBtT7x^)-Xj6zFCI002mhPZUgv
-::]5_lV002md,.VM[=;gT-0J/zW002msNCCr0iP_Aw0000@jYAN-5C8xGNQv3#JpBLvOo{nOiQ4D]7XSc)KL7v,07#8PFieenBxH4DNQ)v8F8}~ZjgFWA000jVR|F3c
-::Q#eSA07!{LFi4F=BveR=!bpikBsl2N^y7M$i$o-iOpQhaO]NwPjZ/WWDZ+sJ!RQA0|NjpVTqJZzjYC+u5M)4o4.s2P4.up!Gywnr$3!F_9033Tiw{hVMifnn_ACgc
-::1WYNwi9{r1=)^]|0E;K;WQ|A]L5WQONMp)9NcaE$Nn=d^NQuYuq+CYcBuI]A$T7fMUSC06L0v(!L0@^NkdTm(kdTm(R!E7@Q/E|]gX~C1iv@~f002nGL@k!?0000/
-::g}_-hNR1WQD,ymUjSc84008KH3jhE}i3LU~001&4MKQp~L@j?p008hoxflQd07#8YBsl.jG17(=bT?$g1?Y$E07!-vbs9,G6?Ka307#7uqALIZ=r/=h07!_iz$pL#
-::iP}kt[JNeHBsl.jg}[J$!bpRBBsc(Mw&T-rNQ)uHDF6USg}_-hNR1V@D,ymUjSXNc008Lq3IG5|i3M(c001&4NQ-D+IRDT{gTzRQ,jrx1kdTm(kdTm(kdTm(S4fH1
-::R!EJvkN]MxQ&H&-NR5i10000/gX|zkiQ4Eb6#xK8iP_8@^y7OsF!&reNQv=CiP}hm@hxn]6#xK8iP_A-_~Uw+IsSFm=r8yG|L6-$|NlsX#2_qC-DM7;TV7x3=oA0|
-::kdTm(kdTm(R!E7~Nr}ryiON$,jb0E+iSbB,#.IQI07!&EDCoWv002yh-32;t008K56aWC|EcXBZNQv1;gToL]iQ4F$6aWB7IrDYeOo_d)kP_p]=t~p/07!$xC_gIf
-::TTF[CUg?&i005AXkdTm(kdTm(R#QlW?{v,ROe8@+[D?07g}[JpQUL$}NR4zPJjX/NAOrva0719}0000/i&cXyNXJAZC/$Ke07/4QNQ+hfMF0RujTHtg0095fg}_^W
-::gM1_B01uS~04V@fNr~}6xC8)I07#2WBtS]VL@kEx0000/jTQ1M0075CBp@I/0095fg}_^ufqW!9z]DKKxWK3Y0J/wV000k0L@k@e^zw@4!e+sDtSA5g$3!F_1ONa4
-::Nr~}Di&cXyLAV3}002nGL@kEx0000/jTOi&0095fg}_^ufqW!9z]DKKxWK3Y0J/wV000k0L@k@e^zw@4!e+sDUMK)nOpQz=NXJAZAP4{e07#2WBtSv93jhEBNXJAZ
-::C/$Ke07#7$o-|)V|I?xQcr.}55D]g)5fKp+NQ,=yNJu&,b_MB{_2TeiNXNkb|NsB&3P_vS5fKp+5fKqci3Rc}002mfOe8@+i1YvdF~CTJ#8^Ki!/p}WkdTm(kdTm(
-::kdTm(NQ)u[Bme.zkdTm(kdTm(iO5Ka)M,ZLJpcd(08NR=bPPQJ00sbc3h5F8008Md0000nz{8M_kdTm(kdTm(iO5Ka)M,ZLJpcd(08NR=M2k!$D0B=x000I6bqeX7
-::1ONc)xB?tGF~Gx-kdTm(S4[e=R!E7~Q&H&-NQ3M]NQ)uzCIA3P$3!GB00000NXJAZH~/^u07!-vbs9,G6(ol307#7uDkuN|=+VU507!_ih$a94MKQoJ)#J$3AOHXW
-::[Ikp40000/jZ7pk|ImfNbq6uP?EZwY07#1kJSG4DNQJ;48c2/5^$L4WNR18OCjbEGbO!)cNQng;CIA3PjZ_E!MKQ[pi&cXi$3!F_00000NQqP=C^&U!0000/jTOc!
-::0095cg}_,CNQK,VC_gM1L@!@LNQJ;4T}X_/[h1QPNR17LCjbEG90vdZNQng{CIA5IK}d[QJSG4DNQJ;48c2/5hbI64NR16(CjbEG]acO_NQng;CIA3MG091Z,t!7#
-::002mfOe8q})1pNtoas3K|NliX$uZJMiF^m|LAU^_002mdbR.~1i&cXq|ImfN50$_3gM1_701vj;bS-4W1.~T#07!-vbs9,G6,wmV07#7u[-JTP=!XUX07!_ipd|nR
-::NQ-D+IRDT{gM1^~0CX=&iv{W=002mZz/zl)jTI9o002mh4ZS7-0O)Q&002md1;ND=05Q[@i&cXi|IkQ.#6XGITV7wokdTm(kdTm(L02+rK~^OkK~z/(R#QlW?@lEt
-::FhKUk4.bW]0000@WA/pm$4H6ON{wtX[JWfyL5cKCjXkz7002li.F6?HiRny;_sfz?|Nl(lP4GyG?P)5r=vNQ_08EL]?+c3;6]k$c07!}1==1vj|4oJMbPGs{-DwV,
-::=ra&i0E7MzbPZ08L]J;EiV&SM5OxHKH|sG)54Org54PGdz+3m7iNSOeOpQ;hNcYe|I#d7wbp=d_)Cg-zImvYeDb7KO]hAj#xB(nF07!$xC|h1&T|rzyT|r)!U(D}+
-::kdTm(RYZx-S4[e=R!E7~Q&H&-NQ3NHNQ)spBme-N$3!GR00000NXJAZNB{r/07!-vbs9,G6=x,@07#7ub|nA-=nDk]07!_i+FS_[MKQoJ)#J$3AOHXW[Ikp40000/
-::jZ7p!|ImfNbq6uP?E.|c07#1kh$8@1NQJ;48c2/5L@r-KNR16EB?){EzytsQNQnh$BLDzMjZ_E]MKQ[pi&cXy$3!F_00000NQqP=C^&U!0000/jTI6o0095cg}_,C
-::NQK,VC_gM1fFl3]NQJ;4T}X_/3@&?nNR18CBme/DXaoQNNQnhuBLD#FK}d[Qh$8@1NQJ;48c2/5);A[[NR17vBme/DKm.5+NQnh$BLDzJG091Z,t!7#002mfOe9GE
-::)1pNtoas3K|NliX$uZK2Y$Py2xB(nF07!{]Bq(IWOe9E1iF70(|ImfN50$_3gM1_N01vj;bS-4W1qUMl07!-vbs9,G6[VlF07#7uIwSx9=-6TH07!_i=pq0BNQ-D+
-::NdM4CgM1_F0CX=&iv=;w002mZz/zl)jTKuY002mh4Fx0s0O,;n002md1rs6w05Q[@i&cXy|IkQ.#8_?gTV7vX!/p}WkdTm(kdTm(kdTm(K~,upK~z/(R!oV/Q&HmC
-::C^#&jL5cW5^s~Iu/15Cnz)S2I2Sho|cWz0E&1DXRM2W#jjTAaWiNH/T)nyKd]Qv@UNQv4]iP7kx4FCX0jTPE0002md-32$P|NlgdW$/XmEypbY07Zr5bR$TOdk{#8
-::,-GNs5J.voNQwLCYz-VaOo{49iTUV)_2YXw,oiK;0RR91NQ1/ETV7vXL0myy!/p}WkdTm(kdTm(K~-IiRaZob(r@W=&SeOlV1qq~9RL6TOo[afpa1{?NQ;l^umAu6
-::NR5Ofpa1{?Oo[ynr~m+}OpBx?xBvhENQp!wSWJtoB+|Xw0CYY_g~[a|NQKgLG+y[KNFD$Hbt_2]iv&Sw0000/IR!=[004Cv=vVmv|4oVMO]M+0iRy{[=tuPb|1rSp
-::JxGlWZ2$lNNQsmrm/e9)Oo?D!Na$)^002yhY$Py2iTOy0,.VLKBq(UaL@lQ]iEJbwNQ/ytm/e9)|IkQ.#9(+rT|rzyUBi&(kdTm(kdTm(K~z/(R#Qlc&SeOlV1qrZ
-::8~]|SOo[ynr~m+}i@k&L0000/jf5nq0000/i[YSb0000/i9{q=NQ;l^zyJUMOpBx?$N(HUbU8@c$#gVKISq0h004C?Wk_zzB_]R007y9na2+]ubs6Y]^y7M,iQ!3!
-::=tznBiSg+h]Z+.b!0Sv&jSY7H|Nl(hge0H;004=UB$xmI08EKYBuMCu2mk/~iDV==Op8n/NJxp;NQrDDFieYtB&lBQ07!{]Bq+oNB$xmI0Eu+YApg+vgT!E4USC~7
-::T,Hu&kdTm(gFV@B0001VBS@kGbRI~H1=Ab=07y9jbrNMriv&Sw0000/IR)xf0049zQ&H&-NR182|Ns9/gX|#a5C{MONQ1/6NQv27|KP^3j2i#|00000F~CU21(15}
-::0000007&CLgd6|?00000NXG@&8~]|S0002PkdTm(kdTm(S5rud&SeOlD1$vv8vp;RbSp[O$#f=VNQ)p|FaQ7mNI3/j8~]}y6iAH~G#dZ^NQ),o6]}ds0ENJG7f6i^
-::y#N3I=!XXY07!$xC_gIfTVMa-NR1T;8vp?gKmY($NQu|/t4PNK00000NQ1/EF~D12!/p}WkdTm(kdTm(S4fH1NQuf/Q&HmCP+LnjBrr(gbR.~1iP_AM?i^?S)lN;N
-::iSbE],#8xgI{,NMz;4Z3ja)!]NQwGLiP_9^?i^?mF~CTP-DMB_Bp])UOe84)6?mEL0ENJL8tW7?)lN;NiSbE],#8w^I{,NMz;Izi!0QD^i$o-SNQ1/sTV7wokdTm(
-::kdTm(kdTm(L03UmK~-IiRaZ!jJ]vyA09HtiufPES08?bb)=pOWf$XRN002mhv@P!K002mdj3n?@0075CBy;1)002md[(6SeI{,NSgd~sv002mdoFtF{004;ZBy?oL
-::_bdfK=vxc_0EEDGR!E8aNQ1_]NQv=CiTdb83/-Oxz/!lAje8)SiSbB[_sgwY004x,bt6cPdoW0e[kojK=pPIK0EEDG5J.+CKu9^7b,#7p0002&OGr8IxB~zH0CYi&
-::ZwO3{Y$SAxPYg)l9nU&d04eE&_Tukw|G|UE|1r|{[ei.aL5akP(rFHw|I;0gcK0#TLHG3Q1x$)Q|I.2JiNi]W[JNaANNf8HNR2JMBLDzQjbtQrNCEE/wpRiVwnqa;
-::iIgOe0000@iQ.6!gd~]&008KP3/-N_i-2Qze-Ws5#Y~GmR5}0vL[D=!|NnF&|Hp(K|1r|{^Ybf5i9{r9Oo_z]|JOOkcJ@vS^jDv|?jq4T/X)h_K?[}{iv_LY002mZ
-::z/zl)jTKHE002mh4P6}o0O.?F|Nlsd1,/qY0RPZPjZ7qXNx|g=NNd{-iN{Ed1v4oC07)JGO]ba9=&48S|4E7POo_&1iSbCd06?=2Hvj-sNCQM9cua}BB#/0A07!|1
-::B$xmI0O;M)002mhj3j]n002md[;[q;B!B;^0RI+CIRF4ijg&ya0000/iSfsTB$5CC009620RI)zIRF5/r?P^ZMT;=UiF^nL55I(YkN]MxNWtL^$3!GJ0{{R3OpOJ.
-::8~]}_L@l?9i.aVA0000/D},G70000/nMn8f|G?FGLJt5j)uqVQP)h1D1c]i?NJNS7^wh+Jj3n?@004;ZBq$HJL?(N$R3tFEKmY($i9{qI=#S^B|44zvr~m+}TV7vX
-::L0myyL0(/$!/p}WK~^OkK~z/&NQur;Oo^utgY0O7J$4rW002yhge0(4004_uB+|Xw07#95B)MMg08ELDB+9-o08ERdB,,{(07!{MBv@#~tR(C@002yjv@SO7004Ag
-::NQKFCTS$e{bXH6_4KEk~0Ci1FIR!2l004DFWk_zzB_]R007y9nBp3hybuvkdKrl&E$Vh|u{dXnkDDwaRO]NYMiRes//+(^#81Dc7NQ-A^G1C7P1ULWyF~I9VNR16a
-::|Ns9/iIgO$0000@iA,F(=r02R08EK=BsfWl,hq=.Oo@nHFieX~BuGq(WF#m]i;Bg(0001qY$PE6(_5,CXj[+gL0myyL0.d;kdTm(kdTm(K~^OkK~z/(R!E7@Q&s4=
-::NQ3NPgFR(y0000@iHsz/0000@i@k&b0000/jf5n+0001syd=l~002mdL@l?9i?xHj0000@i=.sj0000@i?xHz0001VTS$e/bXH6_H6s[Q0Ci1FISnEg004DFWk_zz
-::B_]R007y9n7#9ElbuvkdK_==F$Vh|u{dXnk9P$7EO]NAEiQq^y?WTU24DJ8^NQ-A^G1C7P^&/9lF~I9eNR16e|Ns9@iG)Du0001qlq9GC008JA0ssI]iEJc5Nr~A=
-::iSbN{WF$CDi.aVw0000/iEJb=i;Bg(0001qd@YALiF70(|IkQ.#9(+qUtK|5L0v(!!/p}WNQKFCJ4l7nbT+&MUljlV0CX+#iv@yD002mZz/q!;gFR6e0001V7iCO~
-::1SK#4002xm1y2@L0CfdOImmP;Q&H&-NR17)|Ns9/gX}O!iBu#g=!XFS07#2eBq(IO#4t#S,;1hMF~Gx-kdTm(Q&H&-NR18k|Ns9/gX|!QR3td+SOEY4i(P{yNQv41
-::)1pNtHiJFX6aWAKbS-4OJ;=5b0049(NP|7l6#xJLbs1$yixed=0000/ITgkg004CdNQoV^6#xK8gTx@P!/p}WkdTm(kdTm(kdTm(K~-IiNr}u=S4[e|R!oV/Q&H&]
-::NQ3M-NQKf(i?xG(0000/i?xG=0001VHb{,XkQo2~NQv416}vS60ENJHBItVW|NnzMLlgi20Cf~div_LY004k]3/=aKNR2g382|uCjSZIn|NrQb0000;iTO#1[JNZ/
-::NQtZ[m/e9)Oo_!4iL4}$0000/gTy#nUSC~7TtQv_/7pALJ{bT2Nr~CIfB,mh#|7RK00031002mh4cij{0A+yv1SK#4002mdd@YAHiF70(NQnj26aWC|pyU7lNR0+x
-::69526iA4ZNgTy#7z,}BlT|rzyUBi&(kdTm(kdTm(kdTm(NR0)a6#xK1xC#IO08EL)NYVOCYsxT50l_T.Nho(/NQKgV5=n{B?,Gm{K_==v(_FI[|Lf]UjTQ11002li
-::(~yn&J4h(V14xO_NQ,!q!/p}WkdTm(kdTm(kdTm(S4[osEE[m.NQuu[Q&HgA0096154J+NNR6~4fB,mhNQv=[L@mbrwn7exL@mDjwn7bwL@l=bwn7YvL@loTwn7Vu
-::L@lQLwn7StL@l2Dwn7PsL@k#5wn7MrL@kc|w@YPqL@kE=w@YJoL@j@Yiwe3x0002!oZ|ogNR3P-c;9/$004!-iNkm^NQ-D+cu9&,LAU^_002md[;^+.Bq#s@0075C
-::Bp_kO0093Ld[}$5NQ-D+c!|U4kmCRUNP+xv0RRAr,jrv.!/p}WR!E7~Q&H&-NQ3MsNQKFCJ4l7nbT+&MLlOW00CX+#gFQ)T0001WBV|a71SK#4002li1wRu20Cf?a
-::jTIsi0093LfHMF9g}_)gNR17x|NsB!c?e$YNQ1/ENQv[DiP?9T|KLcC4f^&R0J/bO008J(?/L~qiv{Wu002md21tX&C]5iWUc.=)kdTm(R!ND|Q&H?-]dJBLNR6|g
-::0000/gX}2iQ~?}0NR186AOHa9NC5x;Oo_d)KmY($==&Tw0O-?j|Nlsd,-^&K5KM{M=qCXH07yCWb=pjc-2|So008LK0000/jSW5^002mX#3+.#iP~Q200961OpOJ3
-::9smF^zz@;,0YQos5Qr23NdLe{gZL12@8A^dRY.~DK~z]viN{t,iPlqz&SeOd[JNH~KuE^#Bp@6+002ylWF#O-$3!G300000NXJAZFaQ7m07&C~Bsc(7004vg4}KI#
-::iSbN{/z+zW5a=5J|Nn#Q5bNhLz(XQy42l#6h,ShHNdLg=[JNkRBp]s,-enQ}BrwKA958^B@Ee4&4=6-=AP,4.NR4ISTV7v5TwTMEkdTm(kdTm(RWZOwiRDOx;nTy@
-::?;|wS0S^qzB#jh?000000m6gg4~i5Nh!g=x|G.Ft^z.pF$.|J4kdTm(kdTm(kdTm(F~CHN1OY[b1OiBdzywHx^z.pO!/p}WkdTm(kdTm(L03UmK~-IiRY/93P#XXM
-::S4fH1R#QlW?}W_dj3lrC002Y}w@zO,i(Y3ni/N^(0000;)dhpbbTI$_g}[JmGywnrW_RFVS_URO0RR9;V[Etl0r.J9P)=U$4}}(1004_akN]Mxh1)B=2mt]9i.42?
-::004!-4}|(v002k;_$z&UNQp!wFi1IEBrp$#;NyEwgL[1B4}{tP004^~5JZb3NCEyy0sKgVJ](Ady8r-HOpQH75dZ,8jcg=XOpSCTP+UnNAV_J4bOlH|2J0C~iv&P{
-::g}__nNsCt+NR3Pf0^aBH|Nn+-bzn[5TqI0QiRes/[;[qvBv4F=TqGbtxj-B^07!$$|4fNoBsfUNL@l=U000306+!LV07#1lO]N7CiSkT~TqHP1gUSCyi&cX/Nr]_w
-::NsC7+NQnkaiCiQg{}lo.002mh1(a~[07.-#Fibi44~1j[|NlsX#t2D-#0cp.|Ns9/gToZ,5(![HNR0(&8UO&DgT+X@Ip_0Cmj3^$NQ1/]TV7vXL0myyL0(/$!/p}W
-::Nr}jdN)5I.iN{t,iPlJi!3guDNR6^H0002F2?;{9NQwCKrAULoBupv5USGqIRY.~DS5_=kdI)5~(QnN;)[2Bl[JNH~K#Kv10!WF;NQwFAxZnT)NQwFAAm0D~NR3P-
-::D2-q^0,ONe4.iH_4.tci0000/i$-vPiG!E_004^dPyxV-gP/Ha07#1koE88854TVV54S+HiIb!N002mhR3tEogQx&i07#2QR7i;LBq/wCL[xjUNR4IaTV7vX!/p}W
-::kdTm(kdTm(Q&HmCFi4GDBp]tMOe8@+Z0i62NQv1;iNff+.T)hgi$o-qNQv1o),G5iE(u?XgTydf!/p}WkdTm(kdTm(NQ3MsNQux$ixEM&5C8xGNQ)$agTgTAblv~|
-::g}[J#z)|9{D8rDDkdTm(kdTm(L07o_|Ns9&RzX!kR8@12Oo^&,NQu+)gX}m?i-Bi4D?z7tJ&=s/07,H=NR2=NcOpsu$1(1L^xDT?ulPub#Yl;S|JRAYOgZ?.]fA(&
-::^x0/tNjb.KQA~|(Bp])Q{Yi;/NWtwONQv4^iRes//Yf,WBq(J7L@j?p0002!eE;LdNQv1=iN]oeiNZ{Y[JPYnAV?kw50b+3ImZvS)sIQ}h0=Av?jy}Q)f_-pz)[lI
-::NQ1/UTV7vXL0myyL0(/$!/p}WkdTm(kdTm(L07o_|Ns9&RzX!kR8@12Oo^&,NQu+)gX}m?i-Bi4D?z7tJ.00Y07,H=NR2=NcOpsu$1(1L^xDT?ulPub#Yl;S|JRAY
-::OgZ?.]fA(&^x0/tNjb.KQA~|(Bp])Q{Yi;/NWtwONQv4^iRes//Yf,WBq(J7L@j?p0002!eE;LdNQv1=iN]oeiNZ{Y[JPYnAV?kw50b+3ImZvS)sIQ}h0=Av?jy}Q
-::)f_-pz)[lINQ1/UTV7vXL0myyL0(/$!/p}WkdTm(kdTm(RY.},xeNdR07!}DS4b)sR!oV/NWuC9NQ30@NQ1;HNR50XQ1hisiN{EZ#;?gt008r+NR50XAh_@x002q2
-::tE#H1s/a80NR4zPQ1his53j/ViNP^^OpQz=Am|PN002mhW$;2KUBi&(kdTm(K~zbNK?taJ&eevo0031/iPcD&S4oNLNcZ^xQ&HmCFibhnem6/tS].D^-emBEFiDGi
-::6ZlCvd=n]h14#eNO?5FHxeNdR07z[|Fiip4Oo_V^0p3Z8-ViFB#6kAJ0d-V[jX@gn0ssI2NSR3Y_AIp#btOrSLIJr90000[Ytk[C0l.LW([fE^-DVOc6VObF,Yl.J
-::jZptdjY9uSiOxug=ShoMD7g#)002mtNr~a}r9r#_0002F0ssI2NcZ^oYr.(10oY7A+qN?QYsfH3jWi2LIbJAp8&T{&|4E6$xeNdR07!|[Oo^-yrAV1c^x$V2NQqn|
-::D7g#)002yh$4rUN]QB0G#4uZ4UtK|5!/p}WkdTm(kdTm(K~^OkK~z/(R#Qlg9p4K807!&EP+Ir1bYe)}&|X2|0000;iQY^(LoiG]#dJ-biv{8f002#mU[&EJKqzxB
-::Oo^)13/-NCNh#P!jeH~]Oo{UIrAmzqD[cjo=,QXr|45B=Bp|sA0002;rRxYxiNWZZ0RR9]iQwz5NQ1/sTV7vXL0myyL0.d;kdTm(RY.~DL03UmMTyQqRY{4}K~z]r
-::jd@IuOo^&,NQuixgXHi@f$Wd~002#i?_5uyNrC)T0{{RIjwk]D07$s2s/a80s/a6;!TbbF53k[zh4x8}RnT?BO]tLU{!ER0Brr-Q{z-]0Fu4o?002#i_ACg@Bw$U6
-::/7p0~NCDpSrAUo[Brv&Q0000/jdUbn]QB0M-32@Y|Nl,e^H-eF|IX{dNrUY$NQv1]iRes/?gX!{|Nl(h=twEpNQ3w=f8yz$0000;)fmw{Ls([v(P{9NFiDF=^)=iW
-::NsCM,C_mcUa|}p1$af_7Ily+Y?j-Faz/-Z!iTX(1,.eS/=,s{A08EWTVCy4DImmbFOo_(^;xGj;Oo{nSi9{qQ=(Jw#08EQSBq(LPz&WRQQz&W1c-g2XQ2280NrUV#
-::Njp?|D01~pIp=c8Oo{46iSbE][JxyMO]N/Jp#J~=?Bav4|45Bx$Xi}tL0myyL0(/$UBi&(kdTm(kdTm(S4fG.xeNdR09Hte#z=$gI82L3C_gItNQvU}rAdjvNQ3Aw
-::Ogl([a}Y@4crdvP0000/iN]D#?,Ki$0000@iN{EZ,7K!EgTy#qU(D}+S4fG.xeNdR09Hte#z=$gI7o[.]QE~A0000/iN{EZ,7K!EiRQTs0000/iP!U_NQ1/UUSGqI
-::kdTm(kdTm(|NsC0|NsC00000000000|NsC0|NsC00000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+::00000000000000000000000000000000000000000000000000000000000001yBGGynhq6fqnzBrzyEEjv9sNIT6t],b9pJ3M)ji#)$|vpm{706h{tCOtVlOFbYz
+::03ZMW6afGLL]Dk[Su;rbgENdXm[}s{yfei!$}_k6;}?dz]fUf5Bs48FGBi9iQ8ZdKUo?enhBTElp+{?D#Wc;|-BD}h]+(u83N;V?H8nvsRyAKWYc.xVzBTVP]EMYZ
+::JvU4[ZZ~~5qc]lS[i+(n-c,@CCOJhpN/y;Ha5/H7emRIap,gBKuQ|Cn$~n^H,g4_k2|5xw7djz2Hab5#L][77wL14Y{W=9Z3Of[!A3HlcL^1JBT{~|)csqnUqdTlS
+::xI4_|+/r=m],jDM3Oq49Iy]=]TRdbua6E.Pjy#$@wLHo](pg?Y[jUuG|2zpjC^OPfHa$Q-pFOfY[/xy=K0aVR4L@3Vu0PH{05AXm]Z+;=Y&p?#F+{Wr{V[)Q7cwj|
+::HZnjmMKVk?UNU4dZZe[Vsxq=Nz&t1+,D~QU?[o,47(9g^FEc^jQ8Q]Xd]3YHlQWnzoim~{sWZSc,fZcW=riv#{xcplCp0iLI5bBzQZ#Qgo/0g8vNY(4[iY[PKQ&}.
+::ZZ+1YtTnVXzcu-aA~q~GJT]l&S2kWYbvAr9wKmH)+Hc~R;2LIy[izW8J2zA}lsBd~t2eec={LVPQ#nLB!aB+1-B+hw_8o^c7(}BeQ9E[zgge1I$2.tFAUr8NH9R~#
+::Ogv{iay+&JgFJ~mk35w/n?@XB06-i$cmMzZG&!3cL[.P-R4_mHWH4-nbTE7{gfNUSlrWqyq&f?7v[pCd#4yY.+G,vI;S]^o]f34]ATca4I59,qP&(IFXfbp#fH90Q
+::m[&X=ura)b$T8G0/4$nm^&Q[B5HcJxC]9rMKr(1-STbZXa54Y[000000000000000000000000000000000000000000000000000000000000000000000000000
 ::00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 ::00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-::000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002m$~A0&iaJ5C8xG000000000000000
-::00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-::00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-::00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-::000000000000000000000000000000000000000000000000000000000000000000000000000Pyhe_00000U^tz800000/4l1X0000000000000000000000000
-::00000000000000000000000000000000000000000000000000000000000000000000006aW@g00000yhi-K000007yuan00000)nkDg000000000000000kSqLY
-::000006aW@g00000yhi-K000008~^~v00000?qh+)000000000000000z&Be~000006aW@g00000yhi-K000004ge1T000002uJ,B000000000000000z$E.?00000
-::6aW@g00000yhi-K000004ge1T000007f1YQ000000000000000KqUNW000006aW@g00000yhi-K000007yuan00000CP)~f000000000000000AS@W7000006aW@g
-::00000yhi-K000006aW;f00000KS&s(000000000000000uqym&000006aW@g00000yhi-K000005(#nb00000R7d=2000000000000000kSP3V000006aW@g00000
-::yhi-K000004ge1T00000XGi?L000000000000000fFk]9000006aW@g00000yhi-K000006aW;f00000c1Qea000000000000000peg+m000006aW@g00000yhi-K
-::000004ge1T00000i&0xv000000000000000U@co#0000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-::00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-::000000000000000000000000000000000000000000000000000000000000000000000000000b]x{jmINF-cmQB00RR91M_d)Vd2[7SZA4{eVRdYDOhZXT003)M
-::WdL#jZUAKfYydL=G5{^BWB^acYybcNB?,r0H2_&0EdV6|FaR|GbpR~[B?,r0GXQk}EdV6|FaS0HbpR~[B?,r0G5~b|EdV6|bpR~[B?/5,E(wn9FaR)BFaRw8B?,r0
-::GXP_(B?,r0Gyr4)0000000000F#s|EHvldGFaRz9FaRz9F#rGnZUAEdVE|)QZUA2ZX#j8lUjTFfV,qdf001Qba{xL3B?.~)TL2{ha{yfc00000000000000000000
-::Lvnd=bU|Zrb!l?CLvL;$Wq5Q~002P&L/zL,K?$zyNdPkdG5_PoLvnd=bV-S-Z,p_@WqANYa)QrcQ+P5ZWqD9xa$#+&Lvnd=bVY7sa)Qrc07G)laCAgvb98cVc}rz]
-::07G)laCA~.Y.M3{WkYXnbY,yS07G)laCAgvV{(;LbO1wgd2n;@a&Ew3Wk^LjXaGZUd2n;{VRL9iVRT]tLvnd=bVp[$NMUnmP-[XmZ2(_Zd2n;[Wpi|LZ-S?zb7&lV
-::a)QrcQ+P5WVRL9uVRB)[07G)laCApyZc;[xWN(Q&0000000000Zvb.uZ~$.sZvbKdY5/Qp0046UZ~$.sZvbKdY5/Qp002^}Z~$.sMF4mJbO1vDZvbroPXJ/7Y5+KL
-::asY4uV,qjhbO1B}E(yZzYyfNk002]OV]ef/X?MmiX?Md_Zf8SpZE$aMWmf=FaAQJgZe)e0XGU]wZBuk|X?MmiX?Md_Zf92jQgCBabaH8KXGU]mWmf=FaAQJgZe)e0
-::XGU]mWdKreV@lFyZevMqX?[5}Y.xIBNMUYdY.IpaaAQGpd2VAvZ,6dFWprgjVQg#wPGoXHb9ruKLu^efZgfLoY.|8dWO74nX=QG7Lt$+eG5}6wayB$Ub9ruKLu^ef
-::ZgfLoY.|8dWO74nX=QG7Lt$+eGXMYp00000O8_v)QvhE8MF4F8bpUJtVE}XhX#j5kZU6uPO8_v)QvhE8K?&X^bO31pb]u_jbO31pZvbupNdRsDbO2=lasYM!VE}9Z
-::002t?O#o8?UjR}7WdLpfWdL]oVE}9ZNdRsDbO2=lasYM!VE}9Z002t?O#o8?UjRq|R{&+?L/wH+O8_v)QvhE8Pyk5+L/zm]B?,r0H~@$^cmOQ_B?,r0GyrG.cmOQ_
-::B?,r0GyrG.cmOQ_B?,r0G5}},cmO2/FaR;DXaINsEdV6|FaR;DXaINsB?,r0G5}},cmO2/FaR;DXaINsB?,r0G5}},cmO2/FaR;DXaINsB?,r0G5}},cmMzZ00000
-::phWy?0000000000000002m$~A4rTxV5C8xG(3;_rDzaV6RsYEEgJi]T00000kW2h(000001poj51poj5piBH|000001][s61][s6uuJ[D000002LJ#72LJ#7z+SpT
-::000002mk/82mk/8(_bPj00000000001ONa4(_kVk00000000001ONa4/7t5!00000000001ONa4[J#$]00000000001ONa4fJ],o00000000001ONa45Ka7P00000
-::000001ONa4AWi(f00000000001ONa4Firev00000000001ONa408IR800000000001ONa4P+z+300000000001ONa4Kur8/000000RR911ONa408RX9000000RR91
-::1ONa4AWZye000000ssI21ONa4z+bvU000000ssI21ONa4kWBn)000000ssI20{{R3U_-gJ000000ssI21ONa4piKN}000000{{R30{{R3a7^GZ000000{{R31ONa4
-::fK2?p000001ONa41ONa4[Jsw[000002?;{92?;{9FiiYu000002?;{92?;{95KR1O000002?;{92?;{9uuS}E000002?;{92?;{9/7j~z000003IG5A3IG5A(Hw.a
-::09FqP|F3Zi(Hw.bz#&6Pzk7+i(Hw.czz{@oziOr,(Hw=ez@at_zr-Y4.4Ox=Fm)U_FQPF4U/qFCz;=Bee_[{=(Hw.cfR6GF|35-x(Hw.dKo;.ezsOq~(Hw=efLgLA
-::e~05J(Hw=eI6]A_SCA^J5+T6d00000zv1Kn000000000000000000000000000000000005C9SY00000fJXdj000004ge4U00000l1BV#000007yudo00000qDK5^
-::00000000000000000000000008B,SV_uj?qg2];|tyAb$M+^LkB_(u|gW;ls?,~f4zwxH#K&K+ts.MSuq7_^-8}^w[3o^$Nfl9Y+EBgF_v7UWlHt(K[hTx_J/Cq)F
-::--.?tu|qvgqYN,_ogkIQBfp@~^0V!ak=fN-]_wEeJA1jiq?Ly]mluipy-XvSShGMpNLjB&k~?q;AIyGvSQEwJKK=tjq[p_)Ajxx1PZQ!/5snv4oU+MyoD~sBkZ5FW
-::1~wW.hO1eNxJu4~fX9!]1uR.gmk[=o|H&Z_am!^fj7FnMqc^W($;]wtX~3UueI?-8w5N3i6w[a|_?{!c?hO9=nX6{Xmg&7N;YPj(k_Km4y!gQ#Uj8Xrz~i5m@4ue;
-::pCv,z1?Un|Syr)T1LpBeoFDM+0k{~5y0P5Lli.0(q-;|wQjz_nHr9O7Vj1Z~i&&!E!an;j;W}J_Z@{rPpON.K.Ic6Jhco4mhcHJ)iG}x3G9g/Y]Zg./#mnnNgY,6;
-::PG,3o+9-S;1PqBlhd]6$I8$0?ugt~|4,#xCod_p4cw6_Fw+Ka~M$N!Lux,abSEM(Ti6-XjsHxXNla0[gpCB1nV|/ge[[sF!Fac,P{[1H]&7V##_dLTtt;;8goTPHV
-::xBZhQHb3{wG]OS7ao8~x1ji&87@uT]2NHnd?nE~x34;(e8,W/lQajeODdR7MQ^&qJApEggYRkSkN=#VK)C[1ILrpV;Mfn1MP(}WgQKLYQlASp9ytdjQ5dZVi&@uOl
-::UzbD|#HW5eWL-6]V1ZBEA}WxGM))(2.d-pa/4)T2Nd^cb!qco_k)K0m=g2p0jnz+6Y,zH[WqPg&x^Bin9Hz9!=.qT5OTCMVa6YwWNCWl_VKrB|hQS[4/rN(lY1xjH
-::n/wVh(Q(PijG?7Qzve;{L76QNuvEJiQVD9-FgB$+zd+m(f&Dh;eB)KSn=k+|G?$^=#NO&4RC|/&rotmV@o5?nLi+o^2ri,!DA]?kc3YxJZHv),a_]UShG?_/+TCU[
-::U1heCY/Z^W{q4EhUKK_Hr/VM2kl3pLjJ)qd^vBawxU+qD([3L0&0CYR!LPjo0TYUAI,}1UPiNffm.5ff[U.T0maKFl=dCq_/_uk|9ChDrNAVhQ9Vx|$Z@|F(su/c.
-::{8m0o#@pBpn&ltsc-Fb$AKj=khzG|pu[VqjCxGl;U{Qam8MR6cE#.QjlgXU#px_[At}6Ag$m^d2gHxGd7b]sQx^8zl/b|0ORUr)01wDfY_Q_A4?t3d4Z16Y7;nPkf
-::-lX~/B5j4{$ulF4rNb0SK_h3fs64Liicu?ILt-Sp=Aj)Sr/XZE[oPh|dpc/kI9Omm.uZm;d32^rYfqyG5OvGFC[rgk^SDyLkDzhUo9vx,i;wr,qqO}@RbVPQ-Q3_u
-::0o8OPicBKvDfr+]e3;o{rdY0UD={Spp@wGKh=tfp]c]kNQbmKO#oc+aWT1ZP?@NkA7(wb[N^^~{A@=URMNRQLsc2W7sY,eW/sHY~o6AN71=va;$)-3YE1mz.uvWR)
-::wT|=l)vkiv_3wR0Nm{rs{M1X@o-8VeXD.TPE^8BC)x5q(1u+@,5gsc|KWbS4@aE.365zvo1ODhXJe09F)O&J_W8TR{X([nURkV/qgz7=)tzBIj#C@2ek/({W6)g;6
-::[5m_b($U&5UVOO-OJ5Yt.!hc(5Qo9qPWyP?1,B{cpkiK|u/rgY{vPL@_@_ya00000000000000000000G8F(.[FM]K0Kfw}FpA9q0T}=QfF&F_0KkpX&gW9H91Z{g
-::IXD0S0029a8zj/J91Z{gV@^V}005_l/#t&I91Z{g8(3cL0Klo52D8=y0000000000000000000000000000000000000000000000000000000000000000000000
-::00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-::000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000C}02p0000000000{9]zB
-::^-S740000000000000000000000000$YB5g00000?R|u@00000{9yn9000007GeMZ00000Bw^#n00000LSg]^00000U}69O00000YGMEY00000gkk]y00000pke@3
-::00000v|;1N00000!eRgb00000+M5Yt00000/$i?,00000^F[14000004r2fS000009Af|g00000GGhP$00000NMis100000RAT[D00000U}FFP00000YGVKZ00000
-::bYlPj00000eq#Ut00000jAH.,000000000000000$YB5g00000?R|u@00000{9yn9000007GeMZ00000Bw^#n00000LSg]^00000U}69O00000YGMEY00000gkk]y
-::00000pke@300000v|;1N00000!eRgb00000+M5Yt00000/$i?,00000^F[14000004r2fS000009Af|g00000GGhP$00000NMis100000RAT[D00000U}FFP00000
-::YGVKZ00000bYlPj00000eq#Ut00000jAH.,000000000000000gaAxraztr!VPb4$RA^Q#VPr#LY/13JbaO]/azt!w004~uOk{FLWpqSrY+D~lWNc,slmJX,az|x!
-::P/zf$Wn]_7WkF;Qa&FRK005f-Ok{FQZ))FaY.|7kod8T]a!-t(Zb[xnXJtldY.LYybZKvHb4z7/005![Ok{FVb!BpSNo_@gWkzXiWlLpwPjGZ/Z,Bkp^W)|GLu^wz
-::WdNN4PIORmZ,,m2bXI9{bai2DO=WFwa)Ms&!2wQmQFUc;c~E6@W]ZzBVQyn)LvM9&bY,e@&?hnyQFUc;c~g0FbY,Q-X?DZy3j$7bQ+P5Tc4cmK004/sQgm!VY/131
-::VRU6kWnpjtasyIyY){crWk^XVZ~)#sQgm!dZfSHuZgXi;baH8KX8^9sQgm!dZfSH@ZfRq0WMxxya&pa70043XQgm!mVQyq]ZAEwh-5}Q_Y,cA(WkzXbY.Dp)Z(Yb,
-::WdPm/Qgm!oX?DaxZ(Yb,WkzXbY.Do+eg|K7V{?U]ZEyepfCpc9V{?k4V{LE&sRwOkZDVb400689ZDnn3Z-2w?x)9P~a${|9007Mgb9ZoZX?N38UvmHe/0JeOb8Ka9
-::000000AK)B0AK)B0AK)B0AK)B0AK)B0AK)B0AK)B0AK)B0AK)B0AK)B0AK)B0AK)B0AK)B0AK)B0AK)B0AK)B0AK)B0AK)B0AK)B0AK)B0AK)B0AK)B0AK)B0AK)B
-::0AK)BZgga9Y&XMMYybcN000000$agf00000C}02p0RR910000000000C}02pC}02pC}02pQ,dxacyvQ=ZBJrqNN/azE[W)M000000000000000000000000000000
-::00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-::00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-::00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-::00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-::000000000000000000000000006-i$hyVZph[p^7=&M)b2&/FGD55x_NTOJxXrg$ch[zOHsG^+{$fDSy=&V;d2&{LID5E&|NTXPzXrp-eh[-UJsH3=}u(Cgu[TdT)
-::5UC+kFsVSPP]n;4aH+W+kg1[lu(KbQ)5c|5[TmZ,5UL=mFseYRP]w^6aH[c-kg7;lSgUBO0000000000000000000000000000000000000000000000000000000
-::00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-::00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-::00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-::0000000000000000000000000000000000000000
+::000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 :embdbin:
 ::O;Iru0{{R31ONa4|Nj60xBvhE00000KmY($0000000000000000000000000000000000000000$N(HU4j/M?0JI6sA.Dld&]^51X?&ZOa(KpHVQnB|VQy}3bRc47
 ::AaZqXAZczOL{C#7ZEs{{E+5L|Bme,a00000v~j&1[DS3Q[DS3Q[DS3Q;a]Va]AOUT[DS6R?k!hLXJXr$^z=?YXJXKr[etCRQfXso[DS3Q00000000000000000000
-::P)=U$WU2&J9+5b30000000000[Bktp3jz+t06-i$01N/C00000C?#I+01yBG0001h0RR9101yBG00IC21][y8000001][y8000000Du4h00aO4E5_r/0RUhD000mG
-::0000001yBG00000000mG0000001yBG00000000005C8xG0000000000,kAwvC/$Ke000000000001yBG7y$qP00000000000B_]RkN]Mx=o;h48~]|S0000000000
-::00000000000000000000000000000000000000000AK)B,Z=@k000000000000000000000000000000E^7vhbN~PV#6AE301yBG06-i$00aO4000000000000000
-::AOHYhE[WYJVE^OC.~|8x08jt_00sa607L++000000000000000KmY,1E[[;8bYTDhwgUhF0AK)B00aO407@J=000000000000000KmY)hE]=jTZ){&ekN]Mx0B_]R
+::P)=U$WQGI+_h#&m0000000000[Bktp3jz+t06qW!01N/C00000R2={S01yBG0001h0RR9101yBG00IC21][s6000001][s6000000Du4h00aO4-/#u}0RUhD000mG
+::0000001yBG00000000mG0000001yBG00000000005C8xG0000000000,kAwvC/$Ke000000000001yBGumJ!700000000000B_]RlmGw#^#6NLH~/^u0000000000
+::00000000000000000000000000000000000000000AK)B,Z=@k000000000000000000000000000000E^7vhbN~PVAUps701yBG06qW!00aO4000000000000000
+::AOHYhE[WYJVE^OC[C5)?08jt_00sa6073u(000000000000000KmY,1E[[;8bYTDhwgUhF0AK)B00aO407w7/000000000000000KmY)hE]=jTZ){&elmGw#0B_]R
+::00IC2089V@000000000000000KmY)j00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+::00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+::00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+::00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+::000000000000000000000000000000R2={SpdA1J[JRpwpdA1JPagmP^)=c(s2?0TH6Q?06iNU9I3NH3CL/g;AW8rLC@fy?Bqjg=KuQ1rBqjg=Y9{~ySV{l[3[88q
+::.YEb8Y+SwC/3+tASStVkgh~JaSStVklPdrKlu7]qlq(!L,))45lu7]qC[cT~4lMuxoJs&y5G@=ze=Yz3oJs&yfGz-4K_#IRv_PQ~L[xjU05AXmKuQ1r05AXm2QdHu
+::$VvbJ2r(Qvv[!qy/7R}hv[!qyQ8fSn]hy8#R5btqGByAJ2ulC}G(TSLhc,BJ6iWaAh(BKKF,pDKBufAQG(leNj5z=RJWBuoj5z=RYCHe{TuT4|Y(.w};2)QWcuN2P
+::;U9ZX,gXIMgi8Pb,gXIMWIg}[m_eZvWIg}[,,,XO[JRpw-(&yRMLz&lq+Pw,NIw7ovOfR.[JRpwv^Aj;A3y,Aq+Pw,AV2]B2SES/tV/j[2tfb;!9f53z+JuC#6bW6
+::u0j9-(_SUSutER/YeN74;VyemY)oG5&trtK^+7o+&trtKdq[BPKuQ1rd_JKQ=t&$o5KI67asY4uV,qjhbO1B}E(yZzYyfNk00000QgCBabaH8KXF^RiWNB^]LvL-x
+::Z,yf=0000000000QgCBJX?Md_Zf8bvZ,5a^a&pa7LTPSfX?Mm&00000QgCBabaH8KXGU]mWmf;IQgCBJX?Md_Zf8bvWn}/WQgCBIb9ruKNp5L$X;=-?dSysqZe)m^
+::0000000000QgCBIb9ruKLvL-xY.Mz1Lt$+e00000PGoXHb9ruKLu^efZgfLoY.|7k00000PGoXJY.wd~bVFfmY&&};PGoX6G)mHDZev4iX=QG7Lt$+e00000PGoXJ
+::Y.wd~bVFfmY&?4=Zvb.uZ~$.sZvbKdY5/Qp0000000000a{zDvZ~$+rVgPCYa{vGUQvh&PZ~#RBcmQ-(LjZ38Z2)UIVgPCY000000000000000000005C9SY00000
+::uo3_)0RR914ge4U00000$Pxg60RR917yudo00000,b+GM0RR911wDfY_Q_A4?t3d4Z16Y7;nPkf-lX~/B5j4{$ulF4rNb0SK_h3fs64Liicu?ILt-Sp=Aj)Sr/XZE
+::[oPh|dpc/kI9Omm.uZm;d32^rYfqyG5OvGFC[rgk^SDyLkDzhUo9vx,i;wr,qqO}@RbVPQ-Q3_u0o8OPicBKvDfr+]e3;o{rdY0UD={Spp@wGKh=tfp]c]kNQbmKO
+::#oc+aWT1ZP?@NkA7(wb[N^^~{A@=URMNRQLsc2W7sY,eW/sHY~o6AN71=va;$)-3YE1mz.uvWR)wT|=l)vkiv_3wR0Nm{rs{M1X@o-8VeXD.TPE^8BC)x5q(1u+@,
+::5gsc|KWbS4@aE.365zvo1ODhXJe09F)O&J_W8TR{X([nURkV/qgz7=)tzBIj#C@2ek/({W6)g;6[5m_b($U&5UVOO-OJ5Yt.!hc(5Qo9qPWyP?1,B{cpkiK|u/rgY
+::{vPL@_@_yaQVD9-FgB$+zd+m(f&Dh;eB)KSn=k+|G?$^=#NO&4RC|/&rotmV@o5?nLi+o^2ri,!DA]?kc3YxJZHv),a_]UShG?_/+TCU[U1heCY/Z^W{q4EhUKK_H
+::r/VM2kl3pLjJ)qd^vBawxU+qD([3L0&0CYR!LPjo0TYUAI,}1UPiNffm.5ff[U.T0maKFl=dCq_/_uk|9ChDrNAVhQ9Vx|$Z@|F(su/c.{8m0o#@pBpn&ltsc-Fb$
+::AKj=khzG|pu[VqjCxGl;U{Qam8MR6cE#.QjlgXU#px_[At}6Ag$m^d2gHxGd7b]sQx^8zl/b|0ORUr)0V|/ge[[sF!Fac,P{[1H]&7V##_dLTtt;;8goTPHVxBZhQ
+::Hb3{wG]OS7ao8~x1ji&87@uT]2NHnd?nE~x34;(e8,W/lQajeODdR7MQ^&qJApEggYRkSkN=#VK)C[1ILrpV;Mfn1MP(}WgQKLYQlASp9ytdjQ5dZVi&@uOlUzbD|
+::#HW5eWL-6]V1ZBEA}WxGM))(2.d-pa/4)T2Nd^cb!qco_k)K0m=g2p0jnz+6Y,zH[WqPg&x^Bin9Hz9!=.qT5OTCMVa6YwWNCWl_VKrB|hQS[4/rN(lY1xjHn/wVh
+::(Q(PijG?7Qzve;{L76QNuvEJi2m$~A4rTxV5C8xG(3;_rDzaV6RsYEEgJi]T00000;YPj(k_Km4y!gQ#Uj8Xr_?{!c?hO9=nX6{Xmg&7NX~3UueI?-8w5N3i6w[a|
+::+9-S;1PqBlhd]6$I8$0?am!^fj7FnMqc^W($;]wti6-XjsHxXNla0[gpCB1nw+Ka~M$N!Lux,abSEM(Tugt~|4,#xCod_p4cw6_F]Zg./#mnnNgY,6;PG,3ohco4m
+::hcHJ)iG}x3G9g/Y;W}J_Z@{rPpON.K.Ic6JBfp@~^0V!ak=fN-]_wEeSyr)T1LpBeoFDM+0k{~5z~i5m@4ue;pCv,z1?Un|Hr9O7Vj1Z~i&&!E!an;jy0P5Lli.0(
+::q-;|wQjz_nPZQ!/5snv4oU+MyoD~sBSQEwJKK=tjq[p_)Ajxx1fX9!]1uR.gmk[=o|H&Z_kZ5FW1~wW.hO1eNxJu4~ShGMpNLjB&k~?q;AIyGvJA1jiq?Ly]mluip
+::y-XvS8B,SV_uj?qg2];|tyAb$--.?tu|qvgqYN,_ogkIQ77Nve2uQC&xI42rCqo#rv7UWlHt(K[hTx_J/Cq)F8}^w[3o^$Nfl9Y+EBgF_zwxH#K&K+ts.MSuq7_^-
+::M+^LkB_(u|gW;ls?,~f4(Hw.a09FqP|F3Zi000000Kfw}FpA9q(Hw.bz#&6Pzk7+i000000KkpX&gW9H(Hw.czz{@oziOr,000000029a8zj/J(Hw=ez@at_zr-Y4
+::00000005_l/#t&I.4Ox=Fm)U_FQPF40000006[;C!/{wm(Hw=eI6]A_SCA^J00000005_l/#t&I5+T6e00000zv1Kn00000005_l/#t&IU/qFCz;=Bee_[{=00000
+::06;8;uHni7(Hw.dfR6GF|35-x000000D#]8L&q!b(Hw.eKo;.ezsOq~0000006?2o.22c0(Hw=ffLgLAe~05J00000003EunN!pO(Hw[gz{Ch5zwtRE00000007C#
+::jjGoHG8F(.[FM]K0T}=QfF&F_91Z{gIXD0S91Z{gV@^V}91Z{gd_|!XLvnd=bU|Zrb!l?CLvL;$Wq5Q~00000K?$PmRscZ(Pyk5+GXOFG0000000000Lvnd=bV-S-
+::Z,p_@WqAMqLvnd=bW?$@OJ#XbVRB)[0000000000Lvnd=bVY7sa)Qrc00000Lvnd=bVOxybaHQbOJ#WgLvnd=bW(w)Wnpt=LvL;$Wq5P|00000Lvnd=bVOxia)Qrc
+::00000Lvnd=bVG7wVRU6kVRL8zLvnd=bVy.yXhdOjVE^OCLvnd=bVp[$NMUnmP-[XmZ2$lO00000Lvnd=bVOxybaHQbNMUnm0000000000Lvnd=bW?$@NMUnmP-[Xm
+::Z2$lO00000Lvnd=bVp[wQekdnZ,2eoZUAEdVE|)QZUA2ZX#j8lUjTFfV,qdf0000000000B?.~)IshdAa{yZaB?.~)T?t;800000F#s|EHvldGFaRz9FaRz9F#rGn
+::00000M_d)Vd2[7SZA4{eVRdYDOhZXT00000YXD]casX}sWdLjdGXOFGE(yZzYyfNk00000000000000000000B?,r0H2_&0EdV6|FaR|GbpR~[B?,r0GXQk}EdV6|
+::FaS0HbpR~[B?,r0G5~b|EdV6|bpR~[B?/5,E(wn9FaR)BFaRw8B?,r0GXP_(B?,r0Gyr4)0000000000O8_v)QvhE8MF4F8bpUJtVE}XhX#j5kZU6uP00000O8_v)
+::QvhE8K?&X^bO31pb]u_jbO31pZvbupNdRsDbO2=lasYM!VE}9Z00000O8_v)QvhE8QUGNDZUAKfcK~4kYye3BZUA&uWdL#jb]u_jYybcNO8_v)QvhE8NB~y=NdQCu
+::0000000000O8_v)QvhE8Pyk5+L/zm]B?,r0H~@$^cmOQ_B?,r0GyrG.cmOQ_B?,r0GyrG.cmOQ_B?,r0G5}},cmO2/FaR;DXaINsEdV6|FaR;DXaINsB?,r0G5}},
+::cmO2/FaR;DXaINsB?,r0G5}},cmO2/FaR;DXaINsB?,r0G5}},cmMzZ00000_h#&m000004gdfE00000000000000000000_h#&m000005C8xGBme,aFdYB[FcAO&
+::AOHXWo,y1w[wZMdrMtE@f4t(0_ZmoBKQJkOGL=i;_h#&mKvPJA??x?t,n{c/bS/DW19dJ$icBOpM2$iRNR1VlGynidjSaFg008K;0ssI=jRl4[002md1M3F=6?CBO
+::0Js4F002mX#2{P4NQ=ZsiC7RwiD)!|iEtoDiAV[nK~zCiK~^OmNQ3N9NQ@4FjV)6y|Nlsf!9+-YMF2?P$ViJ.2uacC{}r}E004!-4}~iM006j6S]xlMIR-1f9RUCU
+::NMlAkfjlr!MF0Q~g$w}z0E@6_kN]Mxh0-g&{Qv,}i/OUo0001m$q$6@0000/jT{zCjU+[{,Z=@kgL[1B4}{kM004_75JZbJNCW/&1NP~!0000@jXnA@002R~3IG5A
+::Ns9-ag}_)LNIM7X8&c_?NQJ;7cS)y]^)-XT0!RbM{}m2G004!-bz)[3L@kdsiF^nLLAgKx002mdL@j@gjYK3kNXJAZI0yg$07#8gBtS[m$]ZWqP)c6yNQ)zdjYK3k
+::M2k!$Fi4G5BtS_t2S|g.|4EBS2uO)sNR31!Fi43-Bq0A4AVB~CNrT5QNrUYH4~1s_|NlsX#|TM.#t2A,KL8JfNB{r.NQ1+]NjuyRf,=3@|45Am6!ic9NQ1=@NIU3A
+::i.aVA0000Fg_EEX|4fZsBv46;TR2IJYd}ehb4W?x;3V3RUO_;!TwlY@NR1WQFaQ8SxC#IO08NX@Nzv(_jRZ-Z1Hec,Ou{I06iAH}!bpS2|4A#sNQ1(KOas8{15Jy/
+::O[-XJ(_6C1d[=w4NITGU21q-fD02fyi^l1mLLkG/NQqn|2v;mh?^AA1_bdk?NR3P-ApaFjKmY)tjZ7q9Gtx|rL@j@H$]R8WKmY)U-l9b-988T(Bw#brOpQb(AT!DT
+::6+!,l0ENJL1T);vF.VKoNR3P-F#i=HKmY)pi&cY7OpQz=Xhk!@NR3n]F#i=1KmY+Rz)[~CTqI~ni]E8ZTqICPgTz2z!^3UgNQqn|2uO+-BoIi6bR.y8K~zCiK~^Om
+::NP-B.0000/i]4(@Fa_hsNGriXirGnv=tzt5NQ@PNJH!u-tN/K2NxiG8s/a80swzl[@GKJ00RR9,ipxliOe8Q(i]fQc,XW7[002yjbR/.Pi^J_nd@YYQi]WL6_2s|W
+::&Sh4vNCW9ei^S@a(Pey]NsG[-i]51N(q=}f14+a)NWthoOas74i]WLy=}5u+14xU+NWthoNCVJGJJ3vv#eEP.i_Pht(,)P+|Nlvg{^74&i_Get(gdrp|Nlvg^ehJz
+::NGr!lJH!u.UjP69NIU+ygxCQ907#8rFi1Pz4}{AB002mf?qsl^4.iuzNQ=V{5E~B=V.RK!Z]C8|bJz&GNDqF)4.s4?Fb[&ABtQ=lR3uPHJ69-VgF]uT07#3=OpC=x
+::E6qrY,GPlGF#i=5KL7v]5JV(}4.iZwKo1cI4.iBoP!ADL5DyVYAn8g0002mf@n#TqNGtD1^w7uJ/z^~$14+a.NWthoOatIei~LE]|4oJeeojw~G=E9K;]+Uw^f3s;
+::)1=^lAVCih21+;VOpQz=U^lQMP7qCt#7T@S4.rHpU_UJ4K[Si{AP,5tBybNAgd~6f008I.1ONa{h5vuONrU^X4~,LY002mX#@VQN#Yp$;NQ?[B!TJM8EAL2+!brjB
+::KS&[6NQ3$Ud|D3?21$#?OpQz=U=I,Z5J.#9h-HHf4.rHpU=I,RAV~M]4.teUfB,mh4.f|r5lkd.NWuC84.p1Ti]2~OPY^AL=s!#Y!ZXqj5l#?f5Jw/n5k@]Bd/;Ug
+::NQ3S$NQ3=g4~=/L|NrYvNR3U;NCVGEJ5)@Db0ZHB0S]&X4.iQZ4.rTZ4.i2h4.r5hNQ=QpgXu6xJ5eZd.478M4.sGx4.rrxNQ1,LNQ1?NNITvSg,,QL|4faXB#/0A
+::07/8mFiDGRI7y3hKuL@]L0?]$L0v(yU(GAINQ=ZsiC73oiD)c=iEtQ5iFhDER!D?FAV_b+OpEbJi||d0$V[BBNw}.3s/a80swzo~z+AP&NR4jLNsGWp!TJM8i^J_n
+::&1A5ENx|tqNdwVH)fUY[98yU4=}5uj1W1d|NWuC8NCV$Ui]533=s!pU(_5,(D1KH,jY0uP!T1AAjSN6cjTAsh!Qli-!Qur@jT|{ii^=Yw1Ul&U0{{R?i^1.o1Q|(y
+::$w.US=#K,c07#3~NQ=!$E73^S&1n#J=z9YI08ER,NsG)t15As?NQ=|xXafKMNR2};LAo#i008R_NQ-A.NI6URate0{Nh{h(JNt6&NIS.J6iACpC_dU.C~]vS2uTCN
+::NIS.I[JNfuNQ=|!LrjZ7C_?s-C~_J/JV.mibSw_L0S]!m4.i.o4.jA=4.o)l5J@aZ5l9dZ5J4ah5kMdh5fKj(Sr88qVIWBZ!bt;lNITAQxJWzKc34b}LeNZ$ODIh^
+::NGNhVcST7n-DSXubTUB@5C9Jl6Autu5DySzAP,4)K[Si}5DyVc5J3-RKp-nhLm+v95fDKS5m,pG4.sG?Nh{J#E5b.S_f{(GJJ+q^NIT9CgbD!w07yH,bSw_L01pro
+::4.i_r4.jJ[4.o@o5J)UY5lavc5I_Ug5knvk5fBd&SP&~pU@2|=0Z9YG4.gX&5L,xr5Mv-[5d#kpNe~YaOArqbK^CwiLm+{5-7A(C4.r_q4.sJ@=^vpI|44)v(_3MZ
+::b!bT|-DJRobSw_L0}l_q4.i[q4.jG@4.o;n5K9mb5lRpb5JMmj5kepj5fcv+TM!QsV/~O[6G;z=4.i_r4.jJ[4.fzk5d#kpNDvPZOArqbKp-nhLm(@k5DyVp5DyVx
+::AnCgP|NjpV0uK.o4.i=p4.jD?4.o-m5K0ga5lIja5JDgi5kVji5fTp)S_ZHrVj$]/{{R0.i+;t~NQ.nNKuC,xBuGh#9!QH]Brr,dMhHoZ#z=$2AVFTkNQ=ZsiC73o
+::iD)c=iEtQ5iFhDMjadIli},/;_&H^_NQ@68QcR5m5=+H~Ku819NsC0&SV=jA)ue?607x6aNR3beNdwSJjRadrjSNyq1Ib7Oz)EfX1j;1V5d]|P4.ibs5J3-SOu_UB
+::4.iDkAVCiiM8Y6Ui_qy#)|o3NJ3#iw0d-M;jSPQC1Ib8[1X4&@z+X!^|3MEBM9R=X4.o{yK[Sj2&HTl{5lq4mK[Si^&J4xC5k$fuNjvj?N=b_BC_pY=|47mKNR1Rp
+::NCVPIIYiPZb1]{=5CqaojRadvi_hs6z)EfY1j0cN5KPh#K[Sm3!Vp0Z5Jb_.K[Sl_!XQXH[qD(H4.f&Ji)DiKON|6uNQ.PF5J(]SNQ.nN7+XnJBp]W#5d]|P4.iQZ
+::K[Sm3!Vp0Z5J4b84.rJdAj8beNQ,+!NIO9(b1+AO0S]!o4.i[q4.jG@4.o;n5J@aZ5lRpb5J4ah5kepj5fKj(Sr88qVIWA0LMTZ(Kqzxv4.f+D4.gPR4.i.oK[SjM
+::AVCii01psK5J3-SNDvPYLLfm85kMdh5fTp)S_ZHrVjxJ1K_2N$LMU@~4.f$l5dseoNe~YaN+QhaK^CwiLLd)j5f2er5DyVyAj8beNQ=ZsiC73oiD)c=iEtQ5iFhDE
+::S4e~GP+LJd[BmDWJ.^k+|44(i=m1HJ[JNdVKrH|ONQ?&7i}][}z/zZ#jTMIR|Nlvg(,+C~|Nlsd1s]Q{071DJ0002TL@j?p008hsGr(lVOe9D&),Mwfzz?Af0000/
+::iv|8H002mZz/zZ#jTLh7|Nlvg(,&#G|Nlsd1?.CL07Wy(NR3P-KuC#9Bq(IY73b~$|455WBuIl~Bp@7qjX[m$)1pMcgoXeB0J{MI002mZ|8zA.iv^MM002mZz/zZ#
+::jTI{K|Nlvg(,.xD|Nlsd1)PfQ07#2WBtS)o$xMsKi^_zmg}_+2NQ)u5EC2vVg}_-dNR1T[[(Erxi^hqN^W&D#i3MgX002mfOe8=?Gs)w9BrqHS002ab!$]sABq&e|
+::NQrDDApg,Xz/yyM-enK{BtS[o$#f}5iv?0/002mZz/zo+jTOr9|Nlvg(,(=l|NlsfOe8=]i3Juc0095cNQ-D+NJxdrbSp[U1q(;y07!-vbsI?H6{qn3|4EC^==b(i
+::|455WBuGe!1@wvS05j76(_67HBxsAnNQ-z~U_UH}BydQJd@a{CgTzolU(GAINQ=ZsiC7RwiD)!|iAV[nNQ3M!NP}P@07#83[bCZsNP}Pq07/A3NQ)t=D,ymUi~2}~
+::z/zZ#jTO4[|Nlsf(FF(l|Nlsd1yd]k071DJ0002TL@j?p008hsGr(lVOe9z{),Mwfzz?9t0000/iv=;)002mZz/zZ#jTNTv|Nlsf(FDV$|Nlsd1s5v.07Wy(NR3P-
+::KuC#9Bq(IY6(vjT|455WBv]xFBp@7qjX[m$)1pNsLr9AS5Gw!xNQJ;47D$a1yzl[2NQ=$r]z{G#NQnjYDgXdTi&cXyMKj4riCiQoGtx-jd@X.2jadOii]KoWg}_-J
+::GuuduOe8=]g~[a(NQ)urDgXdTg}_-iNR1Um[BjZui^Pez]#A_zi&cXyNQniJDgXfg(_66-Bv@p=$#g47iv[.&002mZz/zo+jTIvA|Nlsf(FFIU|NlsfOe9!Hi3MgV
+::001.6|IkQ^Y$Q/N!$]x;BuGeu#4umOKvPJA?[Y}-,-_4gNR3P-AVIhg000306,Dye05j5!1d{,4gWwN}L;As-14#eFgZdDB?PUmcFk8dSKvPJA?[Y}-,-_4gNR3P-
+::AVIhg00030756j&05j5y&8SB./RFA|!Qlc)E5U={4~j$tAczA;|HFg(5PaZBgTydf!^3UgOpDP+Gs#Db1d2h6z_]JTB?[2e0c-43L5sj8e}8}f1Hd!TL5sk^zz~bd
+::K{Lof!N3T@$p|yZK{LoR&0r0]ib@/$NrU-We7wWVNQqn|2uO+-BoIi6bR.y8K~^OmNQ3MkOpP^E=l}n_1ONa4Oe]t=+kurkL5l;qF#$,e&}9gl0d@^?dJv2EOpQG/
+::?Hq(oi^1uh,AKP;LW&[9hyh6d!AOJZ0d@-3i^7TA{{R0.i^7Rm|Ns9;jTAOWi^J_n-d^,38bL7wOat9WgXsZv[JIvqNP-(K0001dvPg[|54Hh9iUc[^0Z9MBNQ3VI
+::b@!+u&jkao|Nlsh4X[|^|456~NGr?W1Q{]{NCVwSgX#fw[;[wZBtS[uY$QlXi,zJVNQ1/6L0?]$U(GAINQqn|2uO+-BoIi6bR.y8K~^OmNQ3MkNR1U@=l}n_1ONa4
+::NGs7qi]WKb,]2}UF#$,e&}Imk0d@}fkN]MxOpP]}=KudpEAvc]JwNCF|BZKmNQ=wpDE|NdNQ=uzi_Eae0YZudIEVpA|G_Lu?H(4_NQ=u(jRZbOi_7Ak1PCz!NCVAC
+::gX#fw[kKM-MvDxaL5sn_=m#YM0RaI.YtS1)i[^y.e}Df2z)h09L5sq{=m#YM0RaJP$Qwb6!X;xyfByr)Gsug;!RQAi0RaI4L~Fnsi[^y.e}Df2z)g~]L5t8tGr?VK
+::)LsyAi][SW!9g@1!N3r~$p|yZ!NLeL&0V/8K{Luii42=b|HDi?.4Bd+|Ns9/EB/7[{|}EX|Ns9/i^7R${r~@-i]~tT0YZudIEVpA|G_Lu@g4e~NQ=!viv&-;14ski
+::NQ3DCb[51xTqHn9i+;uFNQ.nNP+LKsAVFV2USGq]NQqn|2uO+]BoIi6d@Xk^R!D?FAVG[(NQ?Hw(_pc,^tHp;_GevQ|H6$l0+hS;0RRAY1T);vazu/5NR12w{}t,n
+::002mZ|8yEii^1tW_@?[G004]w4?18qjY$MZgX#fw[kooy=sW&Y|BZg|h5vLfNR3kvLAV3}002mf&1A5Piv$ZX0Z5HW1WAMF0d@^6i][og-UN[X|Nn#U5OvW)i8i;a
+::0000/i)DiyNQ.nNI7o|pBtS[m#2_Ul!^3UgNQ=ZsiC73oiD)c=iEtQ5iFhDER!D?FAW35wO]fhIi}Lov4|D_G!0UEMje77&1N.Y9NQ=-tkp2JvGs&lYkMJ=Bk4XQ+
+::NQ3zVeDFwv@-{2k{()F.i^Yk6{r~[i_w);BOpQkWOasF~fH+9$C^xXl2s6@|i]-w^bQM7lwg5]0$UDJx3je}E|H)y#$$#rR)RBhV,|.4!002RW9!QH]Brr(eY$P~H
+::i,zJFNQ.;VNJxXkAVFTkNQqn|2uO+]BoIi6d@Xk^R6$ljS4e~GAVIza0000/i_qqt#z.s5iv$rd0!ahbNrUJCb[EJ(CG-C{|456=NsH7@i]fPR)~ATOF#$/f(Pjvl
+::0d@|0jd&f#cMnXBJv.)9|456=NQ?4FwgEzl1UQHRNdLh|gX#fw@nsNv=-pZD|456==ui9q|BKg5i_(8C1WAj|NGsDx1Jpu_1R6mx15E@oNQ3DCb[2bkgZ~S1ut;x_
+::54Hh9iUc[^0Z9MBNQ3SHb@!+u&jkys|Nlsh4F}_[|4ED1NGr?W1Q{]{Ndw-UgX#fw[;[wZBtS[ubR;Yfi-m)dNQ1/6L0?]$L0rSkNQqn|2uO+]BoI|sL03qN?^~(_
+::KuCjS^yA0eJ/())|44(n[Bm4R[JNdVNF+FNi_vIUI3NH307#4ZNQJ;47D$a1i0J@SNsG^uQ11W#NQng[Bme-GxflQd0LMfmAOHXW[I]DgNR3VSGt(Rig}[Jlxc~qF
+::NQ)tABme-Ng}_-dNR1Wc=?Pvoi^ho{@,IQti3JuU002mhP4GoC$w.MzBp]jIz)|Wt^^^?$0095cg}_+qNQ)veBLDzMg}_-dNR1V?=?Pvoi^hrI@f@Hsi3Q#x002mf
+::P4GoC$wZ68NQ?A1)1pNsL_aJT&p)8,NQJ;47D$a1km(#aNsG^unC;_nNQnipBLDzMi&sxMjZHX&WF#N}OpC^40ssI2|ImfNbO,Zu0002&0yEo4i&sxIg~[a&NQ)u9
+::BLDzMg}_-hNR1U+=?Pvoi^hpu@f@Hsi&sxIi3MgO0095cNQ-JQNQKFCDoBe3EF&B^NQJ;48c2/5$mjq6NsG^u814W6NQ-JQNQngvBLDz1),Mv&i,zJti]E8ZTqIyf
+::gTz2VUte9rNQqn|5J.u1Bp6j!L03qN?^~(_a7cq@$N(#lz)|8.(/T?QNP}g.07/ASNQp+GNsHLWMIaym004{n4.rM!$3[r.fB,mw5k=[og~[ajNQ==#jX+4cjSc!7
+::0093LkSzcJNQ)twA].qPjXlcd|NlsZz/zZ#jTNTm|Nlvg(,,OK|Nlsd1wSGH071DJ0002TL@j?p008hsGr(lVO~]CS|ImfN4}@Jh002mf1s[]-07!-vbrwjC6^e+w
+::|4EC^=qv31|44}i1R@-cMKj4rjZM&;iA,FYNR1U~8~]}Fi&rObWF#N}MU6om|ImfN4}|pq002mf1p]_g07!-vbrwjC6}RU9|4EC^=.=!A|44}i=pg^AOp8U)NR3Uv
+::NQq1(AVo9DNQ-I#x)R?+0RPa1zz?A50000/iv_{x002mZz/zZ#jTOS@|Nlvg(,-.#|Nlsd1/Zf#07#2Xz+X!r,hMqRL5+!b|ImfNba^aN1(;,B07!-vbrwjC6.)y.
+::|4EC^=ws{u|44}ibRhr$NQ-ItMKj4ni]oWd+Bn)gz/r}Niv@mK002mZz/zZ#jTI,5|Nlvg(,)1e|Nlsd1xFzO07#2Xz+X!zAcJHiAOK8[#;~Ik0095cg}_)Ny8!@I
+::0P6xX-enK|(_5?JbSOxR1@wOH07!-vbs9,G6[TUb|4EC^=.=x9|455X(_5~|&pd?(|IkQ^O~6Qn$#f_4iv{W-002mZz/zl)jTOG.|Nlvg(,.k||NlsfO~6Qr1;N1-
+::0RPZPi&rN#g~[a)NQ)uLAOHYJg}_-hNR1UO;]TUli^hqN?i^?pi&rN#i3M]X001.6|Ikd0TqJOd!&2&;C_pTRFiDH!L0@~8!^3UgNQqn|2v;mh?[Y}!WF$}ki_qzw
+::1rs0u07#4ZNQJ;48c2/5T/&_&NR16_;p2NZAnO1BNQnjU9{?PBxflQd0LMfmAOHXW[I]DgNR3P-P(3m1)1pNsJxGfMEFb]@NQJ;48c2/5Am#u6NR16C;p2NZ.0A=S
+::NQngvAOHYJi&cX@OpC{h+Bn)gz/p-[0RR91?jE?|NQ-D+P+LQzbT3GY1,/zb07!-vbstEL6.VU&|45Au/N$=Q=#&OH|455WBv43-1(1F105j76)2K+Ji)Di@NQ1/M
+::U(GAINQqn|2uO+]BoJ3fgX|!SS^DXo_bdMr2uO@ZOpC--6/CPv07wJgNR5|?0000/i^1Z{Bme,a{}nbW001lANQ.nNIE^OjNQ-z~Fi3/MAYa4GNQqn|7,$qRK~^Om
+::NP-AS0RRAt0Z5H&2#Eqri}6Gcwn08ji~2-lwn/q@woy0^wn0Bc54KS}L=U!EI}f(5IuEvaIS/o;HbD=!b~K4ZBxpp5L@mELjRlJ3|NlgZOe9!Ei&u{]iBu#|M2TD]
+::NQqn|K#6=LIEhpwFuFhh004;hBq(IYj3kf&004;}Bq0A4Xej]yNQ+H.8vp=EjZ7qP{}tXS002ylgd{+#001.6NR3P-aQ^u4DF6V4z;5DOgJdKq07#9LB#/0A07#3B
+::BtQWG08ER_LAU^_0075CBp_kO0093L04V@fNQ/alKmh/&i_f4a^$UAXh1-=xNsHD;i^PfO3jhE}i^QNP7&2b&NR5/vfB,mhjSNKs0000&iBAMU4.iH_]Fa[Phll^G
+::07/8RR7r_4m/e9)L5oIE1HeIvhoAre01vkXNEiSBL5YW@0000Fw,[?H002RWho}Gm06~jRSV4;MR7k;$AV?@yNQsOjNC5x;NR5mnNC5x;{}mo6002mfoFq]I002mV
+::#1H_h06||tUSD2a!^3UgNQ=ZsiC73oiEt1|iFg=QK~zCiK~^OmNR6nt{{R0.f$Sgx002yj_b~[JNsG[(jZ_E-O]e{[82;nNNR3n]KuC?E[aVSv|Nl(5[JNk+[DEqO
+::4^C=Si}nu[L@kc|5lkc@L4,Dfd@i7P.blgg1dGGL.~=o1NR3n]Fi4Bf=tuYe|44)!5J.dT0d@s}W8Q_Keh]HH!$]&xBp]tO,XRxr002mhR3tFQL?wT1NR3P-Am|eJ
+::|NlshP4Gdu5C8xGNdwMEjZ_Es{}rMq002RaP7pKFL5U0_Wk_zzB_]R008C[SNQ-2dNQ-4[{}nzb002#61SCj}Rq#lQ$ViLW{}pN{002R^?/M1(NsHG?i^QNPSSJ7g
+::NQ/ed0RR9;jZ_E-LAa~{0093LKqmkIOpTl,AOZjYNQ=Wsi)4?Bi,q;hi-eyxi{n9GL0(/!L0nzKNQqn|AXQdZK~zCiK~^OmNR6x{p#J~=NP-BN0ssJu0ztk200jVv
+::MSx9;=}n9HNQ@T5,-IMj00scQ5C8xGK|98E7EFzD1VoF,NsHD;jZK9A6~iU~0P9qX+;}(]Bp~Qv_~Uw/i]hqyr~v=~NR3n]AV_f)g#Q)tCIA3LIX83{L](sQB20~i
+::r~v=~NR3s5=pXg}|LYJ/jfJQI002mhRfOoN[BjZyjduirKL7v+0F6WZiG{EM0049rL](sQAWV(gumJ!7NsHF#;n/gl?kmwgg|Gnt07/A1=x]_/|45CMumAu6NR3Yv
+::=m.4(|45CMumAu6NR3UD=&f4p|43uVNR3]TNCVl6+;}!X=($;!|4fZT5R2AGi^7R$^W&D#i_PN81ONa4NGsDwi^42d3Is6$NR3GZNrUJCb@}P]NQ1,LK|90_g~0#.
+::07#1kI28Z[NR3MfOpC[yi33TC,8df+B?)^Oi.kx5002ylL@l2n)nz^ziD.c$0000/^wh+&@X|j$AOHXWx)EOO07wt7!AQA!M;~Wx&~ml/1Hnj,ji?;t07!|2r~v=~
+::=+d,;|4fU;NR3n]P+LnTBryLKOeFvSNR35=jZ-va(_ga@Bw$R9MTAI=Oe8SqJoo@qOpC[yjZ_FXNR3Mv{}mo3002yj#z?7-Bp]tQO[v5/!zlk12qgdjiw8+JO^VFy
+::iJhPU002Dz00jVa8$mn7bt-7ag_fcd07#8hlt^)Dgy]#J|NrY0OpS&00RR9;ja8ILjZK8/DD40Li/bWG001.6gTWL,i4SE-iv&Sw0000@W5Gy]NMJ~dNihEvTqFPh
+::O=Aa0ja7h1i]xce,#8xYBme-Gxa;G_07#8j6iJKC{}py5002mfjlcl^07#9MumAu6LAa~{0093LTqFPhNQ=Wri;~650ssI=fy7^}002Q?L0(/!L0n(6UBk[GKvPJ8
+::@9c&K07/A4gZW(24?Q0+i2zB70k~HH008Swivm3W00aPZDFpxk_~Ru_|Nj4U1T);vFi4F=Brr]kj3nRy002mdL@j]S)ER_Z?la9kL@kdwjf]DV0000/i9{qI=wJK+
+::|44}gGr(lJ#Lxi&09)V&NQqn|2uO+-BoIi6bR.y8NQ3M!NsIAGi},/3-DMD)NQKf5gopqD07#7$-}/2GNQ=w=6{8~n0ENJHbm($K004tMBNqSw0Ci[7J[yg-004AP
+::OpD9M1q(Ad009610A+yv1SK#4002mh9sd?p07#3=NQrbLC_]q7tlj^rNQnjg7XSddfB,mhNQrzTApaE(BLDzMi$o.7NQoFT!0SANCBhZ}002mhJ)J!4|45AuNdN!/
+::=(#}b|455WBxp?F(Pa)(Bq(Ua$4HAzBw$F3)[2R.Bp]tO(HvCyi)Di@NQ.PFNJxuxBv43$#4umONQqn|2v;mh??x/s-DMD}NQKFCSV+D]bW@,pR~7(O0CY.7gFRgr
+::0001WKxIga1SK#4002li1ydIQ0Cg[&jTJT+0093LoFV_Kg}_-kjZg@kjSVIj008J6^y7M$iv=1N002md12e$u6iAH@jQ{_t=?OpV|456|NQ=-](_671Brr(W#2{b8
+::KvPJA??z^Z.xUA=07#43bWBKv$#h3$NQ)p|FaQ7mNI3=F761TsHAssINR1V}6#xML6)b[50ENJHAv4lQjSZ@5002R^00961{}uWn002mXBLFkNNQ1/6Tf;0=4V)Y}
+::|LB6@|Nlsf&SeO7AX_ZP/LOa.NQ3MsOpDPo$vF,W6#xKqLQRFzbUjFm1z#2b07,Flbunc~iv&Sw0000/IR#o4004C#4^Cm64L2140A?$=1wR&505iZyi486m002mX
+::#3/i]jSZ(&|NrO}/Q#-gi][oY#3+Gr/LOa.KvPJA??x/s,-h&dNR18c|NsB![ZbOcL5tEzi^8DeGs&U)bv_+^-!O!-bTmjg4cip}0CX!zIStws004C(Wk_zzB_]R0
+::07#1s$Q1wpNI3;_6#xK84[ApIi4C@D001-;NQ1/6Tf[xENQ3MsGr(xX-DwblNQKFCK}dztbUZl+fD_}#bTmjg1(0,@0CX!zIR$nV0049&Wk_zzB_]R007y9nbQJ(q
+::br4894PzAm0Cfj5z)|9{D8opN4X6MA|L8v7|Nlvg)[BfUNQ1/ENdMr?NQ=ZsiBJ$si9i[kiAW$,RaRF+RzX+tgX~y@Jq{EA002ylco;2GA54qVNsE67OpDn/i-2!7
+::i,FcBi-3PRi-@C|Xh@;0bYn;_)sW+)IX(VO004DWNI4zh6aWBqOl3&m1SK#4002li1=kb-0Ch4,i$gF.|Hw##_2BY!=-^4T08NX}O]e1zi_9$H=)qd.|455VFf.Es
+::6[MQ905ibrHB5^@B$xmI07#7uO#lD@=y&[#|4fN|Bsffq(rFGQBrr]i!$]s2Bq(LX)n,WUiF70(|IkQ.#8]RJL0)]8U0cJ;NQ=ZsiBJ$si9i[kiAW$,RaRF+R!D?F
+::P=h[v6951JOpS0DNsAs#i^$[heh5s9,.49b5J_)}7+]^IAaq7Zg~[b5NQKgLJV.em02BZKbu)p1iv&Sw0000/IR,X_004Cv=nDq_08NX|OpC=xi_I-J=;E9b|1.er
+::F.)h/B!~b207#7ubpQYV=)pYf|4fN=Brrsa(q#[EBq(Ua!&2)MNQrbLAW4hM|IkQ.#85$AUtV2X!^3UgNQ=Zwi9i[kiAW$,RaRF+R6$ljS4e~GV1qqu5(![IOpSOT
+::NsAv&i^l4ne-Wd2/z5gd5KN2NNsDh7O]bIRO]bghbYn;_$#h/wIXyxX004DWNI4xr6952pOl3&m1SK#4002li1ve7^0Ch4,i$gF.|Hw##_2BY!=r/xc08NX}O]e1z
+::i_9$H=ok9_|455VFf.Es72h2I05ibrI!ud{B)MMg07#7uQ2-n_=.1r/|4fN|BtT4y&S@&MBsfir!bpj1BrrjX+QNN@C_pUUNQrzTApg+vgT!D#UqN0$Twh,YTf[xE
+::NQ=Zwi9i[kiAW$,RaRF+RzX+tgX~y@J&SMc002yla3D#G9!.nTL5qF}M2q[Ki,]u9i_hwwZWv9Ab|7?@NQKFCJV.emToM2Pbu)p1iv&Sw0000/IR#o0004Cv=w}50
+::08NX|OpC=xi_I-J=tueg|1.erHB5^@B&lBQ07#7uc?n-Z=o8&k|4fN=Bsffq&SefABrr{j!bpj9Bq&|P,GY[ZiF^m=|IkQ.#8]RJL0)]8U0cJ;NQq1(2vt,7S3y+k
+::RY6ukS4fR+B/iPb@6@2_08ESGNR3T,Gt(PRxEufgi$!.xjXk~(002pY#4w3PZ!^CSjWvD{002mf4@)yP0000;i_4&W1RVeXg}_)PNQ1_]NIU,[/X&0n|Ns9/JN|TN
+::i-2n}i-2b@EA~M;[O2JIjZJU=6/m7l0E]J/KaG9@O]f)Mi]Ge;h4yq1NR3Tz{}nbI002abz)I[0Gt(3?i]xQa$}_eIi[]8yJHc_VL^5xP(NI@Mi[]8yLXA8!LAd|^
+::|NrX-zXJdO0E[?-jZJSziB0!GzCZu~07.-.|4fZ6KuC=Rn7jY~Oo@sBLJzi.=#v.#074J8gy[nO002mdMSn]E(PmblO,{B]]--qwOo@]?Oo[F5NQ3)Sbu(nd]Gu8D
+::NsUhbNYmy?1NKObO?h4dkQ+F1i[.[c$9L~Y3.C;@@n#6FKyukki,3j24[m#QNR3VR=;fmm07#4QOpA4YNR1Vh+BpcLzYqWb07/9@MT]Hw1NQ$F$Qu9vL5uc;z/y#b
+::i~dcE$4HG8T-{#mNsG-@6{{Nn0ENJH22F-b4[Le?i]oWf6++5O|4EC@{}qlK006lG0001mz/y/pJMj.k{!NR=NR1W!),OTSi^HHOY#RUog}_-ONrV0Z4[drs$4HGe
+::kh=f?LW{iam?2,6MvJ_elo$X2K_Z}EjU-)0|NsC0JNR_DNR3Tz{}rwp004{7?q@Dx0ZfbNM2o|V!.fBJ5J.)pZ~qmM8UO&9i[.sP#WT|P^KV0wi]@;7L5slm^B-9H
+::1w=c~b;RwSZO1dxL5slm^DGF27_p&eLX8AEiA8rviv{uz002mZz/zl)jTJuC|Nlsh4Nuko|LB^8|Nlsd1=9}z0RPZVi[fHb7ytlBjZN2yMSuSlEE+g-Op8U=NVot&
+::men[[|Nl$^z_sBM002mhMQ=!h(i^b?MfbS?|Ns9/|IbL#@npcEclAiQ000000001hNQr(^Ogs5ViFF4^jRX&)jU,3D4[2NdjT8t?JHbhf1PDkEL)oYp+JTK-|8-1.
+::i~C58Pya~M;46PBNR3Tz{}q}U004_@NIS.N@@@/SOauQ)ga1Hs,.VRV$LkMB|H4R)P50?e0000/i_YrH000000001hN{tjFNjuO=jSK=xjRXQn4[1F7jaBDJjZM!/
+::iAB&;6,CzC07#8h.]WGi0RRC2NR3VBy8!@I0RI)182|u8i(b|?xd6avD#.u;07MVJMd!GK.Wx-f^u[#4MbAhpMc-h=&1D^-i9{q=NcZ^jjTNf6|NlY3=[LO{$v{F6
+::08EVq7}Wp(1H,|#Bv3-(gz~f,004;ZBuI.ze@&-MLJzl$?W~.!0Et8.K,vNRI0FCx07QvYBrrsYOe82qi/VKH82|u{Q$LAJBp]tOO=tfV(=?#!NP+z.0000&UqN0$
+::T|r!5URzzmNQ=ZsiC73oiD)c=iEtQ5iFhDER!D?FAV_byNR4X$OpEa|-cW=2h3#}bNsCqpjf)#O002nS;46PBNsA8u6,m|F0E[s$J4O)9@[5bR2uKUqjf)#O002nS
+::=STzpNeg}uNIU(;$1~DMi]oX!^DGA!OpC&Z)nyQLNcZ-gJHc_VOgqJOnn/UmBsfTm!$]x;Brr45NQ.;VNJ#hgNQ.nNKuC-iNQ1/6L0.emNQqn|AXQdDR!EENNQ3M]
+::NQ+Jn2?;{{jZN^X6?}E=08EWVC]OPXjZN^X6~h-,0ENI0h$R6407!#mBq#t)jZGj)i&lp;jTIKt|NlY01ONa4MT]EniF70({}q}S004!-cngDlAOH_Q1wRJ?07!#m
+::Bq#t)jZGj)i&lp;jTQdV|Nljc#zcv9Bq0A4XcqtgyTGUb0KN|Z004!-co~aDAUnf$1rN8w?jpc;a{_OTW{Cyy1][s]gJdKq08EWdAV_Z&C_gSJ;kJ8DMT]EniF70(
+::{}mn=004!-co?UCAUnf&3J;s5JH~PY54YH6i5/{C002mXWF#m6OpQ&2NQ-G;NR1WE),OTKxC/OP0LMfmAP4{e0RI++761T-z;4W2i&l?{$H4yo|Nlrk$afS.x+Bi)
+::5fKp+5lD.{NIS|&4@[C7i3L(y002mfO)^2rs1]VKGr(lTTqJl&gTz2VUS3^p|0TK?007L+0R{p91~LLL0U!)jAY?B(AXE|nAT$vGAd)#L8sHev7Qhs60SW{F3N#7/
+::3UUT/0Ur$jA7mN/A5;9tA2b,M9{~~o81NS06wngD5O4qh0T~Ja8FUE&8Dt0m8B^.V88ij}88Q{&0TT!S6LbUs4_c&X3seFC2Q(cy0T~Ja8FUW.8DtIs8B_4b88i$4
+::8Il$70Tc!R6jTZT6f^9{6jBgy0R{p922uhr0T?DZ7.R|n7,q+W7(Hg~7&~,^65tSU0Tl=U6@6yy6=Vkh6,L9^6,3Xv0T~Ja8FUH(8Dt3n88iq088Q{{6W|fR0Tl=U
+::6=V$n6,LS06?;,n3~(oj0Tl=U6=W0u6,Ln7719py3~(oj0SW{F3N#1-3Q_7e0S]WM4_c[b4?Se;4?AjI0TT&T6ErFS69FOs4Dbrz2yh2r22cP10VWLqCUi]yCS,$h
+::CNxR^CILhM81NS06wngD5KsUB0UrwhA2e409|24N5bzG,4A2U|2yh2r22cP10SN/D2@06+0x$po0Tc+T6l4kj6jTWS6f^6_6jBgy0SW{F3N!_+3Ni-80R#a61VR7-
+::0UHMZ8=[ER72p$a5@~Qf5HJ7$0T~7W8Il#@6L1n?5l|2@0T~DY8L}1d6W|fR4{#1)4Nwd+0T&}V7orpJ5#SGS4qy#X3[_uy0UZhe9RU{r5&3S.4bTg~32-Et2QUUu
+::0T2cN5Ht@}5ON9N2Ve$J000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+::00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+::00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+::00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+::0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002m$~A
+::0&iaJ5C8xG0000000000000000000000000b]x{jmINF-cmQB00RR916aW@g00000un^=(0RR917yuan00000$Poa50RR910000000000;U9a@0RR916aW@g00000
+::un^=(0RR918~^~v00000=n),b0RR910000000000,gXJ&0RR916aW@g00000un^=(0RR914ge1T000002oeB,0RR910000000000WIh0Z0RR916aW@g00000un^=(
+::0RR914ge1T000007!m.00RR910000000000-(&z-0RR916aW@g00000un^=(0RR917yuan00000C=vjG0RR910000000000NIw980RR916aW@g00000un^=(0RR91
+::6aW;f00000ND=]m0RR910000000000v^AlV0RR916aW@g00000un^=(0RR915(#nb00000U=jd/0RR910000000000AV2^s0RR916aW@g00000un^=(0RR914ge1T
+::00000coG1B0RR9100000000002tfdV0RR916aW@g00000un^=(0RR916aW;f00000h!OyR0RR910000000000#6bXn0RR916aW@g00000un^=(0RR914ge1T00000
+::pb_Lp0RR910000000000utETU0RR91Pyhe_00000FjN450RR91pdA2!0RR9100000000000000000000000000000000000000000000000000000000000000000
+::00000fEWOP0RR912LJ#72LJ#7a2No90RR912mk/82mk/8U?E?]0RR912?;{92?;{9P#6G!0RR913IG5A3IG5AKo|gk0RR913jhEB3jhEBFc;+U0RR91000001ONa4
+::U?5,[0RR91000001ONa4P!|Az0RR91000001ONa4Ko;aj0RR91000001ONa4AQ&9E0RR91000001ONa4Fc$!T0RR91000001ONa4AQu3D0RR91000001ONa45ElS|
+::0RR91000001ONa402ly)0RR91000001ONa402cs(0RR91000001ONa4/1?XZ0RR910RR911ONa4[D?1o0RR910RR911ONa4z!w030RR910ssI21ONa4pcepu0RR91
+::0ssI21ONa4kQV[e0RR910ssI20{{R3/1(RY0RR910ssI21ONa4fENIO0RR910{{R30{{R3(=vrI0RR910{{R31ONa4z!m^20RR911ONa41ONa45EuY}0RR911poj5
+::1poj5[D~7p0RR911poj51poj5(=(xJ0RR911poj51poj5uonP/0RR911poj51poj5a2Ei80RR911][s61][s60000000000000000000000000000000000000000
+::00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+::00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+::00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+::00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+::0000000000000000000000000000000000000000,kJ$w00000_e6V7000006k.4X00000EMfov00000K4Jg?00000Okw~400000U}69O00000dSU;o00000kYWG/
+::00000o@.w100000tYQEF00000$YKBh00000--qL#00000[@ro0000001Y.aI00000B4Ypm00000Kw|(]00000o@_$200000RAT[D00000USj|N00000YGVKZ00000
+::bYlPj00000eq#Ut00000h-^Z&00000l4Ae?00000tYZKG0000000000000000AT;C0000000000N[D/30AK)B0000000000000000000000000,kJ$w00000_e6V7
+::000006k.4X00000EMfov00000K4Jg?00000Okw~400000U}69O00000dSU;o00000kYWG/00000o@.w100000tYQEF00000$YKBh00000--qL#00000[@ro000000
+::1Y.aI00000B4Ypm00000Kw|(]00000o@_$200000RAT[D00000USj|N00000YGVKZ00000bYlPj00000eq#Ut00000h-^Z&00000l4Ae?00000tYZKG0000000000
+::00000Z2)MUaztr!VPb4$RA^Q#VPr#LY/13JbaO]/azt!w0071TPIORmZ,,m2bXI9{bai2DO=WFwa)Ms&Zv/|wY+NiubX9I@V{c@.Q,@4]Zf5_hcmPafaz|x!L~LwG
+::VQyq?WdMl+Ok{FQZ))FaY.|7kVgyojY+NiubU|+(X/XA]X?Ml#fB/Nnaz|x!P/zf$Wn]_7WkF;Qa&FRK007^xQgm!oX?DaxZ(Yb,WkzXbY.Do+JpxX2Q+P5Tc4cmK
+::002.0Qgm!mVQyq]ZAEwh@g378QFUc;c~E6@W]ZzBVQyn)LvM9&bY,e@_vFdLQFUc;c~g0FbY,Q-X?DZy-yzo}Y,cA(WkzXbY.Dp)Z(Yb,WdPFxQgm!VY/131VRU6k
+::Wnpjti~vkza!-t(Zb[xnXJtldY.LYybZKvHb4z7/005EzOk{FVb!BpSNo_@gWkzXiWlLpwPjGZ/Z,Bkp{QypMLu^wzWdLq/WNd6MWNd5z5CC([a${|9000XBUw313
+::ZfRp}Z~zVfZDnn3Z-2w?4FGLrZDVkG000jFZDnn9Wpn[l5()B(b8Ka9000UAUw313X=810000pHb9ZoZX?N38UvmHe3/=CqZDVb40000000000000000000000000
+::000000000000000000000000000000000000000000000000000000000000000000000001yBG5C8xG2&{LID5C&X08jt_ga7~lIG{-NSfFU2c&X=(n4qYjxS-^O
+::,r4d3^[D[)7[/VkIH5@PSfOa4c&g_+n4zelxS_0Q,rDj5^[M},7[{DeV4_rMfTED1prWv&z[pHi/G,!N0HYA2Afqs(K&.EjV54xOfTNJ3prf#)z[yNk/G]+P0HhG4
+::Afx~Q000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+::00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+::00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+::0000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+:embdbin:
+::O;Iru0{{R31ONa4|Nj60xBvhE00000KmY($0000000000000000000000000000000000000000$N(HU4j/M?0JI6sA.Dld&]^51X?&ZOa(KpHVQnB|VQy}3bRc47
+::AaZqXAZczOL{C#7ZEs{{E+5L|Bme,a00000v~j&1[DS3Q[DS3Q[DS3Q;a]Va]AOUT[DS6R?k!hLXJXr$^z=?YXJXKr[etCRQfXso[DS3Q00000000000000000000
+::P)=U$WU2&J1;evp0000000000[Bktp3jz+t06-i$01N/C00000s2l)Q01yBG0001h0RR9101yBG00IC21][y8000001][y8000000Du4h00aO4ZzKT#0RUhD000mG
+::0000001yBG00000000mG0000001yBG00000000005C8xG0000000000,kAwvC/$Ke000000000001yBG7y$qP00000000000B_]RlmGw#XdD0l8~]|S0000000000
+::00000000000000000000000000000000000000000AK)B,Z=@k000000000000000000000000000000E^7vhbN~PV]gjRq01yBG06-i$00aO4000000000000000
+::AOHYhE[WYJVE^OC[C5)?08jt_00sa607L++000000000000000KmY,1E[[;8bYTDhwgUhF0AK)B00aO407@J=000000000000000KmY)hE]=jTZ){&elmGw#0B_]R
 ::00IC208Rh]000000000000000KmY)j00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 ::00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 ::00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 ::00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-::000000000000000000000000000000C?#I+WdPv/kQ[L2y#Z-jxE=riwE,D+a325wsRC(Q7$N_w5d_52C@+]]DFK22P$vKY5dnY!U@?0p$pPg8C[KH|c?!bspeq0X
-::SpeYy^$vSaVF2L+[GJlT1p#FO^$?ec]#NuC^&8qe/Q.^T,f0P9.2mhPxG@|#DFNgG/4&OJy#Zwdpfmsgtper,P(WVo[c@83KsW#ZfdOL(z(QW^L{0zzU][T-R89Z[
-::xIO?@c?rM!Fh2kQ2@6H;I6wdZr2yjr/6MNXl?lM]ctHRFbpYT1[Ie3oaR6ZfU^t.[bpYT1,g]mRXifkCI79#dfKC7aNJRhuluiHus73$+tWE#_xJLj0,#zkYpiBS(
+::000000000000000000000000000000s2l)QWdPv/5FG#jy#Z-jI3EB2wE,D+[E.sGsRC(Qm@8iG5d_52s3rgaDFK22(@f+[5dnY!/3xn9$pPg8s44(ec?!bsAS@g@
+::SpeYycq{-^VF2L+a4i4/1p#FOcrE|{]#NuCcrX9}/Q.^TSTO)q.2mhPI5GeLDFNgGU]4(!y#ZwdAT;C0tper,(]G_8[c@83z(HQ]fdOL(Kso?bbWZ?P/5z]Sgiinf
+::I6nXYc?rM!us/9,2@6H;xIh2]r2yjrU^k&@l?lM]^)1?wbpYT1a6$k8aR6Zf/6eZZbpYT1SVI5-m_@xzxI^Q|uulL0$VC7E#7^VKC_SMQ-+n[iI7k2hg#~E^(_kgU
 ::nE~Mf0000000000asY4uV,qjhbO1B}E(yZzYyfNk00000QgCBabaH8KXF^RiWNB^]LvL-xZ,yf=0000000000QgCBJX?Md_Zf8bvZ,5a^a&pa7LTPSfX?Mm&00000
 ::QgCBabaH8KXGU]mWmf;IQgCBJX?Md_Zf8bvWn}/WQgCBIb9ruKNp5L$X;=-?dSysqZe)m^0000000000QgCBIb9ruKLvL-xY.Mz1Lt$+e00000PGoXHb9ruKLu^ef
 ::ZgfLoY.|7k00000PGoXJY.wd~bVFfmY&&};PGoX6G)mHDZev4iX=QG7Lt$+e00000PGoXJY.wd~bVFfmY&?4=Zvb.uZ~$.sZvbKdY5/Qp0000000000a{zDvZ~$+r
@@ -3694,162 +4364,162 @@ Add-Type -Language CSharp -TypeDefinition @"
 ::gJi]T00000;YPj(k_Km4y!gQ#Uj8Xr_?{!c?hO9=nX6{Xmg&7NX~3UueI?-8w5N3i6w[a|+9-S;1PqBlhd]6$I8$0?am!^fj7FnMqc^W($;]wti6-XjsHxXNla0[g
 ::pCB1nw+Ka~M$N!Lux,abSEM(Tugt~|4,#xCod_p4cw6_F]Zg./#mnnNgY,6;PG,3ohco4mhcHJ)iG}x3G9g/Y;W}J_Z@{rPpON.K.Ic6JBfp@~^0V!ak=fN-]_wEe
 ::Syr)T1LpBeoFDM+0k{~5z~i5m@4ue;pCv,z1?Un|Hr9O7Vj1Z~i&&!E!an;jy0P5Lli.0(q-;|wQjz_nPZQ!/5snv4oU+MyoD~sBSQEwJKK=tjq[p_)Ajxx1fX9!]
-::1uR.gmk[=o|H&Z_kZ5FW1~wW.hO1eNxJu4~ShGMpNLjB&k~?q;AIyGvJA1jiq?Ly]mluipy-XvS8B,SV_uj?qg2];|tyAb$--.?tu|qvgqYN,_ogkIQv7UWlHt(K[
-::hTx_J/Cq)F8}^w[3o^$Nfl9Y+EBgF_zwxH#K&K+ts.MSuq7_^-M+^LkB_(u|gW;ls?,~f4(Hw.a09FqP|F3Zi(Hw.bz#&6Pzk7+i(Hw.czz{@oziOr,(Hw=ez@at_
-::zr-Y4.4Ox=Fm)U_FQPF4U/qFCz;=Bee_[{=(Hw.cfR6GF|35-x(Hw.dKo;.ezsOq~(Hw=efLgLAe~05J(Hw=eI6]A_SCA^J5+T6d00000zv1Kn000000000000000
-::G8F(.[FM]K0Kfw}FpA9q0T}=QfF&F_0KkpX&gW9H91Z{gIXD0S0029a8zj/J91Z{gV@^V}005_l/#t&I91Z{g8(3cL0Klo52D8=yLvnd=bU|Zrb!l?CLvL;$Wq5Q~
-::00000K?$PmRscZ(Pyk5+GXOFG0000000000Lvnd=bV-S-Z,p_@WqAMqLvnd=bW?$@OJ#XbVRB)[0000000000Lvnd=bVY7sa)Qrc00000Lvnd=bVOxybaHQbOJ#Wg
-::Lvnd=bW(w)Wnpt=LvL;$Wq5P|00000Lvnd=bVOxia)Qrc00000Lvnd=bVG7wVRU6kVRL8zLvnd=bVy.yXhdOjVE^OCLvnd=bVp[$NMUnmP-[XmZ2$lO00000Lvnd=
-::bVOxybaHQbNMUnm0000000000Lvnd=bW?$@NMUnmP-[XmZ2$lO00000Lvnd=bVp[wQekdnZ,2eoZUAEdVE|)QZUA2ZX#j8lUjTFfV,qdf0000000000B?.~)IshdA
-::a{yZaB?.~)T?t;800000F#s|EHvldGFaRz9FaRz9F#rGn00000M_d)Vd2[7SZA4{eVRdYDOhZXT00000YXD]casX}sWdLjdGXOFGE(yZzYyfNk0000000000B?,r0
-::H2_&0EdV6|FaR|GbpR~[B?,r0GXQk}EdV6|FaS0HbpR~[B?,r0G5~b|EdV6|bpR~[B?/5,E(wn9FaR)BFaRw8B?,r0GXP_(B?,r0Gyr4)0000000000O8_v)QvhE8
-::MF4F8bpUJtVE}XhX#j5kZU6uP00000O8_v)QvhE8K?&X^bO31pb]u_jbO31pZvbupNdRsDbO2=lasYM!VE}9Z00000O8_v)QvhE8QUGNDZUAKfcK~4kYye3BZUA&u
-::WdL#jb]u_jYybcNO8_v)QvhE8NB~y=NdQCu0000000000O8_v)QvhE8Pyk5+L/zm]B?,r0H~@$^cmOQ_B?,r0GyrG.cmOQ_B?,r0GyrG.cmOQ_B?,r0G5}},cmO2/
-::FaR;DXaINsEdV6|FaR;DXaINsB?,r0G5}},cmO2/FaR;DXaINsB?,r0G5}},cmO2/FaR;DXaINsB?,r0G5}},cmMzZ000009+5b3000005C8xGBme,a1RMYW1P}lK
-::AOHXW1-[i3QmsU#ZKnug/k?;#9.Vwp3QZ7r6pO,l9+5b3]A8{R{d?Nt{R04z]8,5]KLh}ApaB3?KM)-M!2tkNC/$ME0Kou};3m6?0e}aQLIHr&#Q,[5C/$ME2tf#u
-::XaWHF1ONaOC/$Mk2mwI)00BSNAOL^/{d?Zw]9Morzyn{^00000]HaO2]/.d{^hSO7_D-8I_y(AP{d?Eq{R04z2mk;)8]H/Y=?q^(_zHjc^5(NL]aBB]$Ob_p.~$P(
-::0{ubL!Gd4.^8$QGC/$Mk2u)ow00BSN/0XXVhyp.+sY#1c9{~w#VF?^Kh)18M3#y1xioz)1NdZ8+KLHDCp$Gs}NRdFfXb1o^NtHmkDF]]GlR^wqdO|6S_WpcGe,zlo
-::f)HOpHUI#SXbwQR2nPT)Xc9oVX-}Y~l|m@s]A_a5mqICvr~,Lw=mh|[,-K!476E|LSOI|2I{,N&IsgE$GXMavDF/LNsQ?_9r~,LwKLH5qp#uO]2?;{T=mJ3bNCWt{
-::2mus}A&k4^00{t,XiGr)00BSNfC2zDNC!aq;U/^F^SXTa0|;ap/$r}j/e!B@004lJ00BSNr~,Lw;U/^FDT7_3/$r}j/}bx-/e!B@004lJC;7h&Xa-#}sR97_00BSN
-::7zY5-,!&yrsE$DR^aXq1HUI#Si2DDv]Xo#Xe,zlo1Nr|{^U}WfXu|.J=^f$?.vS8h!Sw&B{d?iz_y+X4_D/U|^hUk.]/;!y]HasBzyn{^00000C/$ME3c(!8=?rO@
-::O96n=4hDeIZ2dvgjU]77s1.o[9{~XCq5uF@XaNk&3k3ktslfn|0ssIM?jMm_e,pmTtp5L0NP!2DKLH5qfB,ngC?22Y9{?pJLI40&Nr4BEAQ3@Mzyn{^]A8{R{d?Hr
-::{R04zC/$Mk2nj(?]8,2[/R67w/DZ2?00BSNC/$Mk2n|5^;3j-E/+4K[0RVu~004l}00BSNU/-3xC/$Mk2oXT};3j-E/+4K[0RVu~004l}00BSNU/y|w004l}5C8xa
-::C/$Mk2o,s2/R6$[/KKls00BSNC/$Mk2pK]6/0r-c;6{7k0sw$g/llut00BSN=np{o9{?Px0HL3n{d?fy]9Morzyn{^00000]HaO2]/.d{^hSO7_D-8I_y(AP{d?Eq
-::{R04z]aB8[]#cK^r~)wrAHf,$^5&W{]8,7aD-B/k83usT8U}#U.vR,fEeHTq/{y{a/sX^_/R6)]/6nhBlmGyf^-LS)$o[f.773P&/{y{a/sX|{r~))u3Juws2m=)$
-::2[TqsKLHBs$]ZaV/R6^|.~$w[.2eZV]aB]F1pojP/R6-^.~$)_,Z=?Q]#d5Hr~)wrAHf,$YW+9Hp8]&[fDQmulfnRze,zWjAPxXjb]/X3mm(bsn8E;j_hx)GEdT)J
-::_.1@H_GWwFXeL0Z?/n^3YA!,kNGAZPXeL6bN.qJaiWWfmNGAfR@k7O_.vJ8i!UzCVXaW|@0Kou}s8K.q/sX|{/R6)]00BSNXeU6aYA.?lh$aB3XeUCciY[_Eh$aH5
-::O#lECwgME)2nK.C!VbuqSNuVf{{jH;Edl]k^+.X+_GWwF2q,oi^XYsb;O35b;AVT]/R6@{C@]1]3NJya.~$w[2q!|RDlY.4C@]7_NdW-q{{jH;Z2tdLUkCv4O9uc{
-::wZZ^=7Y2aR^=5nE83usT$PU-;9|.{Qivj?ts3t)E;O35bsxCpP;AVT]0RVu~.~$w[2qyrks3t;G3NHbv2qyxmh$cX)s3riZiY_H]sxASkssa@th$cd,LJirPs3rob
-::D,,tMwZZ^=r~)wr7Qq0K.-}[0&KZOS8UO$k=xTQO4FeX73IG5Us3kzDh$R52sx3jOiY+=Ds3k)Fh$RB4?/ny|t.&1&s1.o[.vJ2g!~XwNC@_OvDlb8+h$R52C@_Ux
-::iY+=Dh$RB4bHV^Te,zWj,1_ahEdT)J0rUS;{d?iz_y+X4_D/U|^hUk.]/;!y]HasBzyn{^]A8{R{d=mZ{R04z;]ut$;pTn$2@l_Dr~n4b2o1[a3I?4EufPD(]8+~@
-::.~$G#3H@EnE,T1(=m7[H2@l_D2[T1bKcN8eZ2|yPC;OqK4gEut2MmDH1O|Z8q8SI9p(105H30yWpt&H^/R6n/qB#VcF#!OSp}ho~/sXz=puGp1Edc;O/sXJypcw@4
-::0ssIM/sXz=/R6n/CjkJI(A|YX.vAElLID6(${^(JNd/Z^NHIY9KLH5q03k{Gg8&@j(cOiD.vAElBme)YzX1j7A]_wY$rV8Ps1.o[9{~yLAR$Qlg8&@jt.&11zX1j7
-::L/wF(@,k30=K~I]{{aQ.A^M@b?^Y(N;U/^F$Q3~O=[mfv9{~yL0|Nk5KLH5qBLe^bzX1?HU/-SCs3kzDsx3jOh$R52s3k)FiY+=Dh$RB4=p{g[s3icY?McR3sx1Mj
-::=p{m^iY!5@s3iiah$KL&=p^KDh$KR)?Ma4O=p^QFt.&11[4,0){{aQ.WBmVA{{RN.sRRI2@7#rg/{ySa/sXJZh!sHj$rV8P9{~yLBLe^bKLH5qV,?zG#K8d3@gIp?
-::p8yQ(U/-SCh$KL&iY!5@Xe0osh$KR)YAgY&Xe0uuh$TR(h$H~1iY.B[iYx+Ch$TX+N.ROCh$I53NF-e1h$R52NF-k3iY+=Dh$RB4=fD8b.v9]ejKKiWBmDnV{{RN.
-::0R{k6{{aQ.pbh|3zX1?HpaK9@$R$9j@85;)$}K]uh$R52$R$FliY+=Dh$RB4s3kzD@85;)$Rz.(sx3jO$}It[s3k)FiY.B[$Rz[+h$TR(s3icYh$TX+sx1Mjs3iia
-::$R$9j@1KW4$}K]ut.&11h$R52$R$FliY+=Dh$RB4=p{g[@1KW4$Rz.(?McR3$}It[=p{m^iY.B[$Rz[+h$TR((cOhY=p^KDh$TX+?Ma4O=p^QFMgRa5{{aQ.0R{k6
-::=fD8b(cOiD{{Rl^paK9@=p/a@?^Y?Q?MTL2h$R52=p/g]iY+=Dh$RB4$R$9j?^Y?Q=p-EC$}K]u?MQ}N$R$FliY.B[=p-KEh$TR($Rz.(h$TX+$}It[$Rz[+$R$9j
-::;O2ke$}K]utib[$t.&1&h$H~1$R$FliYx+Ch$I53h$TR(;O2ke$Rz.(iY.B[$}It[h$TX+iY!5@$Rz[+h$KL&h$R52h$KR)iY+=Dh$RB4SpWYQ=p{g[@85|-?McR3
-::h$R52=p{m^iY+=Dh$RB4=p^BA@85|-=p^KD?MTL2?Ma4O=p/g]iY.B[=p^QFh$TR(=p-ECh$TX+?MQ}N=p-KE[4,0)LjV64ZZ.g].~$t@{d@A]]9Morzyn{^]Haa6
-::PXqwbKLn5K=K}$&@gIg/3IhOC1^prAMF4=)BmjWY69$0N6b69O&K3lOEdUgoNC5^$2_xbR2t_2o9{~yLsUU=!E((RQ&mEXd/R6n/.vy8Bh$TR(s3icYiY.B[sx1Mj
-::h$TX+s3iia?/3/!.vy8Bp#cC@f(l;G2nK.CO#ld-2@l_DEC30c/R6q;s3m==h$R52sx5x0iY+=Ds3m_@h$RB4{{R8(iUI(s4-enJ1^prAC;Fk}X&s/D4,fxs&?fUa
-::s1.o[9{~yLVgUeDs3kzDEC2@Z{{Rl^/R6n/h$R52sx3jOiY+=Ds3k)Fh$RB43/zF92nK.CEC2|bXe2;Xh$R52YAiviiY+=DXe2^Zh$RB4]Hag7zyn{^|HA/$DHK5Y
-::2oym1KLH5q!U6zPC@r6s?/nLiDl9?&h$R52C@rCuiY+=Dh$RB42qZwM?/nLiC@o+?3M[gXDl7r12qZ$OiY.B[C@o=[h$TR(2qXZhh$TX+3M?Js2qXfjDHK5YNEAT&
-::9{~yL!UO;RNF-e1?/nLiN.ROCh$R52NF-k3iY+=Dh$RB4C@r6s?/nLiNF+HMDl9?&N.P1XC@rCuiY.B[NF+NOh$TR(C@o+?h$TX+Dl7r1C@o=[3lu?4DilEZUjYm2
-::!T|tO2qZwM?/nLiC@o+?3M[gXDl7r12qZ$OiY.B[C@o=[h$TR(2qXZhh$TX+3M?Js2qXfj|HA/0zyn{^]HaU4]/.d{^Y)m5{d?Nt{R04z761V7$ht!L|9=6g]8+~@
-::]aBB]]#cN_^y7O!=l}q;?Hq+mAweUN/G!duhW.DS=mP-&$hrdg1OUEL0|S6k0sw(00RVu~/9~&h00BSN/06FR761V7$i71P=l}q;?Hq+mAps;j/G!ducK!dC=mP-&
-::$i4#k/159g?Hq+mAwd|C;wF3G1OR|i0|0?1f(-k300BSNpacLk69NFV761V7$ihPT=l}q;?Hq+mAweXO/G!duWBvb]=mP-&$if2o/0r-c0|0;h/sX;]Apn3;00BSN
-::paK9i69544XvRYM=l}q;?Hq+mA+zFZ/G!duRQ?/#=mP-&XvPBh/0r-ch9iJd;pUL};O39{0|0;hA]@C=0RVu~00BSNU/qF#GXQ{60ssIM699lx/0r-cfB]us6aWD5
-::h{{6w2mt_K?Hq+mA?kyE/G!duJ]lZe=mP-&/0r-ch{]+^00BSN/159gpaB516aWD5h|WU!2mt_K?Hq+mAt5D]/G!duF#Z3R=mP-&/159gh|U7}0RVtf00BSN.~$sX
-::{d?Zw^Y,-,]/;!y]Ham9zyn{^]HaX5]/.d{{d?Nt{R04z6#xM6sJcS=|9=6g]8,2[]aBE^^W&Fz=l}q;?Hq+mAweUNz[j6O7XAO1=mP-&sJa6A1OUEL0|S6k0sw(0
-::0RVu~/9~&h00BSNzyts]6#xM6sJ=q]=l}q;?Hq+mAps;jz[j6O2L1n-=mP-&sJ/UE/159g?Hq+mAwd|C;wF3G1OR|i0|0?1f(-k300BSNfC2zC6#xM6sM13D=l}q;
-::?Hq+mA&P{4z[j6O]!+#q=mP-&sL}&Y/0r-c;pUI|;O36_0|0;hA]@C=0RVu~00BSNU/qF#GXQ{60ssIM699lx/0r-cfB]us6aWD5h{{6w2mt_K?Hq+mA?kyEz[j6O
-::.u)ZU=mP-&/0r-ch{]+^00BSN/159gpaB516aWD5h|WU!2mt_K?Hq+mAt5D]z[j6O)ft3H=mP-&/159gh|U7}0RVtf00BSN.~$sX{d?Zw]/;!y]Haj8zyn{^]A8{R
-::{d?Nt{R04zC/$ME2vtD(]8+~@0s@]2/R6$[/6nhB00BSN3jlyp?^Y(NXbB4oYXtxie@b6o2[OD!DrsyuY8C+EOaK2={d?Zw]9Morzyn{^]A8{R{d?Nt{R04zC/$ME
-::2vtD(]8+~@0s@]2/R6$[/6nhB00BSN3/=,q@Lz?Oi3J{0h;!lQ2|-2#j0FG[pFsd|Dh+uAOKEL5YZd[F3/-LA{d?Zw]9Morzyn{^hy)x^9C$!X5Df&Q=+)XqG6Vom
-::6&7PVb^W1Y1^uC71qA@48U^GQ5gt5FnMb8=u)-UZH&78;[(o_-n[75CQ[WsTlt/5}l]!+tww|^5#~wFs,SMf={~SDSm_As6[kg-39v_^,S.YTann$]A{70s4T^3wn
-::J084Fd?=h.ogY4Kz8[!U9)Vvuzyn{^e}8}f00000]HaU4]/.d{^Y)m5{d?Qu{R04z=?Pxl6oCzq]8+~@ivWO9i~;wO?H_z1iD^!MYXtyNNJT+nDFFydNx?huYybZ?
-::mO=oLH35K9m&/{.=?rq03Ic#qC?20BN)BH?2x+gXDDfXSivRyL.~$t@kpKUe.~$t@y#N1~?H_z1ivWO9Nku[oYXtyN$VNc8DFFydNx?huYybZ?wFUrDmHq!U=?rq0
-::3Ic#qi]2wxC?20BN)BH?2x+6LDDfXSivRyL.~$t@djJ2Ih=Kx;3jq^$iU5F8X=!t~N)BH?XhuM|DFFydX~G}4YXAQ={d?Wv^Y,-,]/;!y]Ham9zyn{^00000]HaU4
-::]/.d{^hSO7{d?Eq{R04z=?Pxl6oCzq]8+~@h=Kx;?H_z13/_3&ivWO9iD^!MYXtyNNJT+nDFFydNx?huYybZ?5eEQIcMSj.[B{!+^_@7+l|llMF}k2_HUWTA6uO{p
-::5Cs5F]v3|L5e5KH5W1jlF}k2_[xuYF.~$t@U/qD@=?rq03Ic#qi]2ktC?20BN)BH?2x+6LDDfXSivRyL?H_z1?/o05ivWO9Nku[oYXtyNh)$oSDFFydNx?huYybZ?
-::_VIt6{s-K4wL$?Ve|kVn+(?Ak8xI6dIRpSt[khRHP#.[|G9Eil6h]sja0dWSQ=YI-WF9nbl|/U7R39WxwjMi9m_1s7,PgIW{T@_OSRXx397nlsxktWkIv-buTc5B^
-::[C)2^d?=e-o,zGMg(#d_.AAx+5Cs5FzZ]eq#~(na(^}Rt1|Gdm[DIQ}[;,^45C#BG[kg-3[Dsp2J|418]F,-25C/HH[;gz1Qy#NUbRIr#l]!N/wjL#J,B(HpcX|L!
-::cK81].~$t@8UO#6=?rq03Ic#qi]2ktC?20BN)BH?2x+6LDDfXSivRyLivknNiU5F8X=!t~N)BH?XhuM|DFFydX~G}4YXAQ={d?iz^hUk.]/;!y]Ham9zyn{^A0PwO
-::e}8}f00000]HaX5]/.d{{d?Qu{R04z^5&W{$]t/S]8,2[]aB8[=mRP$2[L=eAq4/tH2@|=zj6d|X#fCJ004keB?)]v2mk=]2w6b-U^vU3/sXJy00BSNQ~@0A?H_z1
-::i~;wOivWO9iD^!MYXtyNNJT+nDFFydNx?huYybZ?.~$t@9{?NBv^b$/6aoM=YC.]!?jMg]Z2}6,i~xXAscCDtj0FHuXhlG{DFFydX~7[3Z2$i@]8,U1.~$t@5C8v{
-::ltKVeRQ~[p+dB#yAOL^/{d?Wv]/;!y]Haj8zyn{^]HaX5]/.d{{d?Qu{R04z^5&W{),i+b]#cK^e-~e0U/qGA004keDF6TzsKPUg6hQ#d3/-NW.~$w[IsgBc?H_$2
-::ivWO9NdaHDYXtyNNJT+nDFFydNx?huYybZ?ltKW}p8]&[i2nan.~$z]EdT$Pe@kCpU/-SCsKPUg3GrVzKS2O.=m7v!3IKpo?jMcYDFFa93;Utui1lAM9{~w#p#T6?
-::YXtyNe,pk.N)BHBO#lB?UjYegFae)$a{?[cAOL^/),gjw{d?Wv]/;!y]Haj8zyn{^00000]HaX5]/.d{{d?Qu{R04z]8,2[?H_z13/-|$ivWO9iD^!MYXtyNNJT+n
-::DFFydNx?huYybZ?=?PxF6[dzotO66u?jM-2iU5F8iD^&NN)BH?XhlG{DFFydX~7[3YXAQ=Gys57w!#UK=?rq03Ic#qC?20BN)BH?2x+dWDDfXSivRyL.~$t@SN{K)
-::.~$t@gZ}[QiEbQItU[V]?H_z1ivWO9Nku[oYXtyNh)$oSDFFydNx?huYybZ?lm.A1pDqA#BmMtW=?rq03Ic#qtHKG9C?20BN)BH?2x+6LDDfXSivRyL.~$t@KK}og
-::sKNq~3jq^$iU5F8X=!t~N)BH?XhuM|DFFydX~G}4YXAQ={d?Wv]/;!y]Haj8zyn{^]HaU4]/.d{^Y)m5{d?Ks{R04z2n2vq|NjB0=o0|B761Uy$ht!L]8+~@]aBAZ
-::]#cN_^y7OU=l}q;?Hq+GAweUN/G!du;of[Y=mP-&$hrdg1OUEL0|S6k0sw(00RVu~/DZ2?00BSNKn4Ib761Uy$ksyn=l}q;?Hq+GA/Be+/G!du+cXII=mP-&$kqb-
-::/1fXk;YNGl0|0;h0sw(0fdP;G00BSNKm.6Z761Uy$l5~r=l}q;?Hq+GAps^l/G!du#QOi2=mP-&$l3z=/159g0|0;h/sX?a/R6$[00BSNU/-R&6953vXx?8k=l}q;
-::?Hq+GAwedQ/G!duwfg]/=mP-&Xx/-)/159g1OR|i;3j-E/sX^_K?(bK00BSNU/qF#GXQ{60ssIM699lx/159gfB]us6aWCwh~h&|2mt_K?Hq+GA+zLb/G!dup!+xp
-::=mP-&/159gh~fhI00BSN/1fXkpaB516aWCwh|WU!2mt_K?Hq+GAt5D]/G!dulluRc=mP-&/1fXkh|U7}0RVtf00BSN.~$sX{d?cx^Y,-,]/;!y]Ham9zyn{^00000
-::]HaU4]/.d{^hSO7{d?Bp{R04z=+)Y!|9=9hAAJC-i2/yOAAJF.]aBAZ9}xig2n2vq=o0|B2mk=k69E8_{|]B9]#cN_=_#Si^5&Z|.~a&$2mk=]2vtD(/R67w0s@]2
-::U[_!a00BSN7ytm!2+jc0^y7OU=l}q;?Hq+GAweUN/G!duWcvS@=mP-&2+hFL1OUEL0|S6k0sw(00RVu~/DZ2?00BSNAPN997ytm!2+{!4=l}q;?Hq+GAps;j/G!du
-::RQmsy=mP-&2+^dP/1fXk;+Z-R1OR|i0|0?1f(-k3/R6$[00BSN00/my6953vXx2jc=l}q;?Hq+GA/Be+/G!duL/C.h=mP-&Xx0Mx/0r?j;YNGl0|0;hApww500BSN
-::AO.-56953vXy!us=l}q;?Hq+GAps|m/G!duH2VLS=mP-&XyyX?/159g0|0;h/==&up#XqV00BSNKm.6Z6953vXxc,g=l}q;?Hq+GAps^l/G!duCHnuD=mP-&Xxak#
-::/159g0|0;h/sX?a/R6-^00BSNU/-R&6953vXx?8k=l}q;?Hq+GAwedQ/G!du7W+5}=mP-&Xx/-)/159g1OR|i;3j-E/sX|{K?(bK00BSNU/qF#GXQ{60ssIM699lx
-::/1[vofB]us6aWCwh{{6w2mt_K?Hq+GA?kyE/G!du0s8.!=mP-&/1[voh{]+^00BSN/159gfB]us6aWCwh~h&|2mt_K?Hq+GA+zLb/G!du]!fjn=mP-&/159gh~fhI
-::00BSN/1fXkpaB516aWCwh|WU!2mt_K?Hq+GAt5D]/G!du=lTDa=mP-&/1fXkh|U7}0RVtf00BSN.~$sX{d?l!^hUk.]/;!y]Ham9zyn{^00000]HaX5]/.d{{d?Nt
-::{R04z6#xLxsJcS={|f/5]8+~@]aBAZ^W&FT=l}q;?Hq+GAweUNz[j6O&=!P9=mP-&sJa6A1OUEL0|S6k0sw(00RVu~/6nhB00BSNAOZk16#xLxsOm!b=l}q;?Hq+G
-::Az?$xz[j6Oy!ro]=mP-&sOkdw/0r-c/sX;]/R6(Z00BSNU/qF#GXQ{60ssIM699lx/0r-cpaB516aWCwh|WU!2mt_K?Hq+GAt5D]z[j6Osrmnx=mP-&/0r-ch|U7}
-::0RVtf00BSN.~$sX{d?Zw]/;!y]Haj8zyn{^]HaX5]$P(_{d=]j{R04z|HA/$]#cH]r~,K^]aBB]0SJK7/KKothynn+sOmsDt]PnctolGXtM++S=mP-_=?PxF0+Z_(
-::2mk=]2t_2os_5ZNsqR2I@JEGer{-L8??~iVrs6;3?l,/MrEWlZ?JtFDq.sEU=@eh4qcT9b00BSN2mk=k0U1I02mk=]2nj(?/6nkC00BSN2mk=]2suFc/sXJZ0RVtf
-::/6nkC00BSN00Q^o2mk=]2t7dg/3Gi!1pt83#1DW{gCYQtA]@C=/llxu00BSN2mk=]2th#k]8+}X/3Gi!00BSNlK}WO/R6-^fFb~qp927t2mk=]2wgz=fFb~q00BSN
-::/e!E[2@PKU/3EN&DtRAMiUt6=s4hgQh]_2!sX|5giB16ds8T@=2?;}lDS.fy3V9z?C=oz/DHT9[iXs##iK-m)sH#dS34sc#2mk=]2pvHA=^dgB00BSN|HA/0{d?&+
-::]$S4x]Haj8zyn{^]HaR3]/.d{^hSO7_D-8I|3e7T{d+kZ{R04z^X7c{.~$)_/llut^yYo}_2z#0_U3?2lmGvh=r=(Q/llut/DZB]6CnVR2mk=]2vtD(/sX;]00BSN
-::=z{~1a{?s92mk=]2vtD(f(^rl/o}04.~$t@00BSN=z{~1X#xmKHjw}k=|cdK=z{=}KYakH]n)MDAAJC-]#c|v.$DR!D,,sh)|!a~+e/j-/e!B@.~$w[)f$9IltKWJ
-::a|QrWbN~M}zXAYptpEU2qJ98V/R6)]/6nhB=mY@i=|cdK2oQi$/e!B@D9JTA/6nhB!u|i3=z{~10Kqnk2mk=]2vtD(0s@]2/e!B@00BSN&0d7U=mQd}3IhPS2{AzV
-::2mk=]2sJ@YLVZA!0RVtfAQ@dU00BSN2mk=]2vtD(0t0}#/e!K^]8+~@00BSN2mk=]2vtD(f,pX//R6@{.~$;|00BSN2mk=]2vtD(f+#-$/llut.~$@}00BSN.~$t@
-::{d-,E|3e6o_D/U|^hUk.]/;!y]HapAzyn{^]HaR3]/.d{^hSO7_5OTF|APt9{d+kZ{R04z]aBB]hyp/l]8+}X^5&W{^X7i}^yYv0=tBUxA3/HJAprnX2mk=]2vtD(
-::l[b7v0s@]2/R6-^/1dCn00BSN82|tj0Rn)h/DZ2?/{N}a2m,jo=o;jJ2mk=]2vtD(0s@]2/e!B@/1dCn00BSNhyp/lA3/HJ.~a$rAAvz}0RaG1/$r}j/S(LoH2wdV
-::1ONaO/$r}j/S(Log!}+Ol[b7vi2]{mXc7QX=obLFKS4op.~a$rKY?AU0RaG1/!]/T/R6-^CH@=G1ONaO/!]/T/R6-^b]HI9/ll=zfKmXF_2PQw=)j;-/ll=z/8OvS
-::6CnVR2mk=]2vtD(/sX;]00BSN=u.iaa{?s92mk=]2vtD(f(^rl/o}IA.~$t@00BSN=u.iaX#xmKGm!uh_BMRrAj30[0Rn)hrT-hy=#v4FAj30[0?Lwj0Rn)hg#G_Q
-::D#J62?/o05ivWO9Nku[oYXtyNh)$oSDFFydNx?huYybZ?ivmEo=o12w6Tvf!e}O[90R{k62mk=k2oXT}0s@]2/R6-^U@KpKXaWHF2mk=]2vtD(00BSN=qEw?X$t]Y
-::iwgi+stW,E/==_z2norW0Rezg/9~&hb7BCI2q^Dj=nnw.Vg3J@2mk=]2vtD(0s@]2/R6Pd/KKls00BSN=o0~vVFCzC;3k3K/u8Up/KKls#r].62mk=]2vtD(0s@]2
-::/e!T|.~$t@00BSN2mk=]2vtD(0s@]2/e!B@/1dCnb3y=.00BSNivmEo=u.iae@dWUY61vL?JtFD00970e}O[9VF3VC/zIzD/Zp(T/1dCng8cuN1pojP/zIzD/Zp(T
-::/1dCnm.^#g?Jvb[N?Kn2=mQd}$]rnn2{AzV2mk=]2sJ@YLVZA!0RVtfAQ@dU00BSN2mk=]2vtD(!UBM~/R6AY]8+~@00BSN2mk=]2vtD(f,pX/fl?gG.~$)_00BSN
-::2mk=]2vtD(f+#-$/ll=z.~$-{00BSN.~$t@{d-,E|APsU_5Qp^^hUk.]/;!y]HapAzyn{^A0PwOy[^anA].pY@X|j$AOHXWdPgY6TFq85]A8{R{d=XU{R04z]8,8^
-::A8.M2ssI2~UjP8P/0l0Je,ysc5(![cC/(jY9|1veKmh;$2th$nA9+XQU/qGA004l}2mk/S;U/^F/{yYc7XSa31ONaO;U/^F/{yYcs{a3&U/-U7004ke{d@P}]9Mor
-::zyn{^]HaR3]/.d{^hSO7_5OTF{d?Qu{R04z^yYi{]aBB]]#cN_^5&Z|_2z(1^X7p0v/-XO=?PxF0ih@62?;}^C}BYP.~$w[00BSNzykm]NCN;r2mk=k69EyCXaYdF
-::C;6dB2mk=k2)dspXaWE;C/+(_XaWGa=mQd}XpR8-=?PxF0wE}o2mk=]2t_2o;pUO~;O3C|/{z0_0T6+FU=je400BSNXc7RC=mG&w004ke4,(oZ=?PxF6[e(_e,yrx
-::2mk;)0Kq)wmG}Rb@,jm/.~$-{;pUS0;O3P1/{z6|/sX^_/R6)].~m6[{d?Wv_5Qp^^hUk.]/;!y]HapAzyn{^]HaX5]$P(_{d?Qu{R04z]#cH]]aBB]6$1dY]a231
-::2mk=E69EyCXaYdFXaWE;Xo]7jC/|YrXpTVn=?rm~9{~yLp#cC@2mk=k2w^0]VG/n500BSN0096s0RezgU@K#Ot]NO)Xof+f004kehynol2mk/S2mk;)0O0^UX7~S?
-::@,jm/.~$z]/R6)].~m6[{d?Wv]$S4x]Haj8zyn{^00000]Haa6{d?Qu{R04z2mk=E69EyCXaYdF]aB8[r~({qlmY/?XpTVn=?rm~9{~yL0RjM22mk=k2w^0]fC51I
-::VG/n500BSNKmh;X2mk=k2w6b-0w93W0RVtfU=je400BSNp8]2-004ke2LJ#R2mk;)0D&LMKKK8Z@,jm/.~$w[.~m6[{d?Wv]Hag7zyn{^00000{d?Qu{R04z2mk=E
-::3IP$3NC7~)=K}z$=m7vU#{mGeNrgc9=m0@Z9{~yLK?-|&NR2[G=?rm~9{~yL!2keMUjYEQ004keU/PlNUyT6y2LJ#R2mk;)0O19ZANT,4@,jm/.~$J$.~m6[{d?Wv
-::zyn{^00000]A8{R{d?Qu{R04z]8+~@2mk;)0Ko]568Ha@@,jm/.~$t@.~m6[.~j-N2mk=E3IP$3NC7~)NC5yeNQFT82mt_JONl_F&K!kiNR2[G=?rm~9{~yLX#$Iy
-::Nr@dY004ke{d?Wv]9Morzyn{^{d?Qu{R04z=K}z$M,/w}Ap!uj2mk=E3IP$3NC7~)r~v?pONl_FYXJbXNQFT8C/;SpNR2[G=?rm~9{~yLp#T6?{{Rc@VE^PB004ke
-::2LJ#R2mk;)0D&dS;[W!V@,jm/.~$J$.~m6[{d?Wvzyn{^00000]HaL1]/.d{^hSO7/tvC;;QD{~;{t(A{d?Qu{R04z?H_6h=mQGN2@/=wDgg@MOCbP}=mQJObAey[
-::2@/=wDgg^NOd$Y~=mQMPgMnZ82@aosDgg|OOCbP}=mQJOb&9]F2@/=wDgg^NOd$Y~=mQMPmVsaR2@/=wDgg|OOCbP}=mQJOcY$B{2@/=w2mk=E3IP$3IB9G6NC7~)
-::]aB8[$O8a0v/zRNfdc[vNQFT89{~gFAp.zZNQprC9|05V!2$qONR2[G=?rm~9{~yLK?_3(Xc|EI2@YSrKMeq}$N?OUI068a/{zC~/sY0|/R6;_.~$yZx(Hr_2mk=k
-::2q8fEU?ZRA0RVu~00BSN004l}3/-NW2mk;)0AUM}mG=La@,jm/.~$w[=K~n3;]vb1;pUO~;O3Bd/sX;].~m6[{d?Wv^hUk.]/;!y]HavCzyn{^00000]HaO2]/.d{
-::/tv9/;QD]};{t#9{d?Qu{R04z?caq$=mQGN2@/=wDgg@MOCbP}=mQJOVu4[y2@aosDgg^NOd$Y~=mQMPlYw8j2@/=wDgg|OOCbP}=mQJObb),]2@/=wDgg^NOd$Y~
-::=mQMPm4RRQ2@/=w2mk=E3IP$3Hfe15NC7~)=K}z$NCE(fCjtPp0RjNDNQFT89{~dEp#cC@NR2[G=?rm~9{~yLAprnX@EwIk/{z6|/sX^_/R6)].~$sXZvOw5004l}
-::3jhEV2mk;)0O1gkPxk-p@,jm/.~$J$;]vY0;pUL};O39{/{y{a.~m6[{d?Wv]/;!y]HasBzyn{^00000]HaL1]/.d{^hSO7;C6oa;)mYl=Pv/H{d?Qu{R04z|3d+L
-::?SF;s=mQGN2@/=wDgg@MOCbP}=mQJObAey[2@/=wDgg^NOd$Y~=mQMPgn@i92@aosDgg|OOCbP}=mQJOb&9]F2@/=wDgg^NOd$Y~=mQMPmVsaR2@/=wDgg|OOCbP}
-::=mQJOcY$B{2@/=w2mk=E3IP$3IB9G6NC7~)]aB8[r~@2rlmh]@NQFT89{~jGAp.zZNQprC9|05V!2$qONR2[G=?rm~9{~yLK?_3(Xc|EI2@YSrKMeq}$N?OUoB/ro
-::/{zC~/sY0|/R6;_.~$yZ9sd892mk=k2q8fEU?ZRA0RVu~00BSN004l}3/-NW2mk;)03j8T_St(o@,jm/^yYj?.~$w[=K~k2;]vY0;pUKe/{y|^.~m6[|3d)g{d?Wv
-::^hUk.]/;!y]HavCzyn{^]HaO2]/.d{^Y)m5;C6lZ;)mVk=O-O9{d?Qu{R04z?f.?B=mQGN2@/=wDgg@MOCbP}=mQJOV}W1z2@aosDgg^NOd$Y~=mQMPl!0Hk2@/=w
-::Dgg|OOCbP}=mQJOb&9]^2@/=wDgg^NOd$Y~=mQMPmVsaR2@/=w2mk=E3IP$3H+)A6NC7~)]8+~@C/|X969NFVNQFT89{~gFp#cC@NR2[G=?rm~9{~yLAprnXQ2^vy
-::/{z9}/sX|{/R6-^.~$vY),6IJ004l}3jhEV2mk;)0HGR[v.SU&@,jm/.~$t@=K~k2;]vY0;pUL};O38c.~m6[{d?Wv^Y,-,]/;!y]HasBzyn{^]HaO2]/.d{^hSO7
-::_D-8I_y(AP{d?Bp{R04z|APS02mk=k2q{4M/5z{M^5&T_0RVu~/Nt-100BSN=sQ5U2?;}FG=T|_]8,yB7XSdz=raJhl?!HmU//q.0s@]2=w@9q!NLHM00BSNfB,nA
-::b3y=.e,zWj0ssG0hyn-Ze,y]W.~#|ubs|A26af_Wp9TOi!2keM2mk=k2qi&I/KKls00BSN6aWAelLi10761Uy004ke2mpXmv/Y7!$R;Gf/KKls00BSN2mpW,Qvd+p
-::fB.)!2@]60Dxnh^2nf?}9{~w#L@KjqLH^@#2nf?}0D&+52mloe0ssIMXaImx?Hq),JHa232z[}+iUEMq76]dS8Ep!i699mc=zl=6DGxw7ItxHKbN+fo9|05V+(?C4
-::qyPU[GyxjRp9TQ2Ap!tY2mpZ66aawI+dm337ytm!7a_S}2q![K/KKls00BSN2z+[)9|05VX#f9IlmZru2n83ap8]5#!~XwNAOHXql@DKj3jl!97XX0LR006B,aiU6
-::6#xLxXd(2|=pO-2s3t+9/KKls00BSN2z+[)9|05VX#f9I=]sG)3k3;P=pxvfcLoTm{{j]2WB(hCl@DKjRR93BfB.)!=@c}FXbIJtD&}/E9{~yLL@KlAq5S^/XbIJt
-::2)1/HHLE}=2?}|5XhQ/#7!e7JQ~@!B^#XiIp9TOi!2keM2mk=k2qi&I/KKls00BSN6aWAelLi10761Uy004ke2mpXmv/Y7!$R;Gf/KKls00BSN2mpW,Qvd+pfB.)!
-::2@]60Dxnh^2nf?}9{~w#L@KjqLH^@#2nf?}0D&+58UPgw6953PVD3Ws_a=M[.~a&&=?Pw+0pTc.?Hq),AVDdS7WMy]VD19?002MM2mk=k2rWSQ6bC]0/70)t/DZ5@
-::00BSN=rch1Ne}?76$pUR699mc3IPer=zl=6bN+fo9|05VwFUsuqyPU[2mtWX3/]+b3jpxai2@}Ahyn|Xp8]c+J0Xag2mtWXNdXAUUjYp3NC69rC@SZN7Xcf~{{{fD
-::Ap!tY2mpZ66aawIw,~/w7ytm!79rP~2q![K/KKls00BSN2z+[)9|05VX#f9IlmZot2n80Zp8]5#!~XwN9{?Op]acQt3jl!9765@K7XkpZxCQ{x6aWCwdLh_Fh$cY!
-::/KKls00BSN2z+[)9|05VX#f9I3k4dg$RgO9b^NKl.vSrwqyGO@]acQtQ~(^AfB.)!$qLk)XbIGsD&lj99{~yLL@KuD/r#zpXbIGs_a@ju2)1,G3IQ97^#Z(|3jpxa
-::2mtWX2?|fYNC60oNdXDVUjYm2DItiO2mk=k2pvHA=^dgB/X@tD/3EN&00BSNC/+(_=&+aA/iCbO=(JyE2mk=k2r+qU/6nkC00BSNBm-QsX8@dw0|P-00SJK7/5$J1
-::NCW]FNPnoC&mV/e?!ZMV3H[Nx=r=)5C4CZ8=^f$??l,/MDgg-~2nRs9N+61K?/eE7rsxbC=nDY3=?Pw+0?LSf2mk=k2t_2oNd,8A=[S6C=|[1h=?q^{00BSN|APRL
-::{d?l!_y+X4_D/U|^hUk.]/;!y]HasBzyn{^0KjP~$p8QVgWelMKtc}y]A8{R{d?Hr{R04z2mk=E0U1I02mk=k2nj(?/G-PM00BSN2mk=k2suFc/$r}j0RVtf/G-PM
-::00BSNfC~6G=?Pw+0YNK~/159g2mk=k2t7dg1pt83gaCk2;3j-Ef(hS000BSN2mk=E6M-DcpaA$c=o3J?9{~Vy=@9.0X+,vg=?Pw+0l^Pg/159g2mk=k2t7dg1pt83
-::gaCk2;3j-Ef(hS000BSNKmqtS=o3J?2]f_9KLH49LI40&1ONaOA3XqZ=?dRJDKUr|X&YZ==?Pw+0f8+$/159g2mk=k2t7dg1pt83gaCk2;3j-Ef(hS000BSNKmqtS
-::=o3J?2]f_9KLH49LI40&1ONaOA3XqZ=?dRJDKUr|X&-x]=?Pw+0U;4s/159g2mk=k2t7dg1pt831Ob3j;AVT]VgZ0s00BSNU/-3y=o3Ks9|._lX#fCJDFA@y1pojP
-::?f.?i9{~#M?Ei(hDKUteX#xQG2mk=k2th#k/159g00BSN004ke{d?fy]9Morzyn{^5C8zs5LQ6?00JM[XaHas/XuG4$&e[U$bu/3+(M{l$N+e9/XuG9)T2$c$bu/3
-::R{.ED/eq4h;H.cbf.K~L$ppxPEac;kLjYhR/eq4h;H(-4;blY7D(,tiSODNE/eq4h;H.cbf.K|#fyo5Of.L0YL/(C^/eq4h;Ix1jf.2/J)FDkXD(,ti0000000000
-::00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-::00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-::00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-::00000000002m$~A0&iaJ5C8xG0000000000000000000000000b]x{jmINF-cmQB00RR916aW@g00000AQ1q70RR917yuan00000I1vDV0RR910000000000Fh2l,
-::0RR916aW@g00000AQ1q70RR918~^~v00000SP=k#0RR910000000000I6we]0RR916aW@g00000AQ1q70RR914ge1T00000co6_A0RR910000000000/6MO@0RR91
-::6aW@g00000AQ1q70RR914ge1T00000h!FsQ0RR910000000000ctHSw0RR916aW@g00000AQ1q70RR917yuan00000m=OSg0RR910000000000[Ie580RR916aW@g
-::00000AQ1q70RR916aW;f00000xDfz=0RR910000000000U^t;Z0RR916aW@g00000AQ1q70RR915(#nb00000(=CND0RR910000000000,g]n-0RR916aW@g00000
-::AQ1q70RR914ge1T00000=n),b0RR910000000000I79$|0RR916aW@g00000AQ1q70RR916aW;f00000^z@hr0RR910000000000NJRjE0RR916aW@g00000AQ1q7
-::0RR914ge1T000005E1}[0RR910000000000s73(Q0RR91Pyhe_00000AXET=0RR91kQ[Mj0RR9100000000000000000000000000000000000000000000000000
-::00000000000000000000/1?XZ0RR911poj51poj5(=(xJ0RR911][s61][s6z!w030RR912LJ#72LJ#7uonP/0RR912mk/82mk/8pcepu0RR91000001ONa4(=vrI
-::0RR91000001ONa4z!m^20RR91000001ONa4uoeJ.0RR91000001ONa4kQV[e0RR91000001ONa4pcVjt0RR91000001ONa4kQM.d0RR91000001ONa4fEECN0RR91
-::000001ONa4a2Ei80RR91000001ONa4a25c70RR91000001ONa4P!|Az0RR910RR911ONa4U={#@0RR910RR911ONa4Fc$!T0RR910ssI21ONa45ElS|0RR910ssI2
-::1ONa402cs(0RR910ssI20{{R3P!;4y0RR910ssI21ONa4[D?1o0RR910{{R30{{R3Ko$Ui0RR910{{R31ONa4FctuS0RR911ONa41ONa4fENIO0RR912?;{92?;{9
-::U?5,[0RR912?;{92?;{9Ko;aj0RR912?;{92?;{9AQu3D0RR912?;{92?;{9/1(RY0RR913IG5A3IG5A000000000000000000000000000000000000000000000
+::1uR.gmk[=o|H&Z_kZ5FW1~wW.hO1eNxJu4~ShGMpNLjB&k~?q;AIyGvJA1jiq?Ly]mluipy-XvS8B,SV_uj?qg2];|tyAb$--.?tu|qvgqYN,_ogkIQ77Nve2uQC&
+::xI42rCqo#rv7UWlHt(K[hTx_J/Cq)F8}^w[3o^$Nfl9Y+EBgF_zwxH#K&K+ts.MSuq7_^-M+^LkB_(u|gW;ls?,~f4(Hw.a09FqP|F3Zi000000Kfw}FpA9q(Hw.b
+::z#&6Pzk7+i000000KkpX&gW9H(Hw.czz{@oziOr,000000029a8zj/J(Hw=ez@at_zr-Y400000005_l/#t&I.4Ox=Fm)U_FQPF40000006[;C!/{wm(Hw=eI6]A_
+::SCA^J00000005_l/#t&I5+T6e00000zv1Kn00000005_l/#t&IU/qFCz;=Bee_[{=0000006;8;uHni7(Hw.dfR6GF|35-x000000D#]8L&q!b(Hw.eKo;.ezsOq~
+::0000006?2o.22c0(Hw=ffLgLAe~05J00000003EunN!pO(Hw[gz{Ch5zwtRE00000007C#jjGoHG8F(.[FM]K0T}=QfF&F_91Z{gIXD0S91Z{gV@^V}91Z{gd_|!X
+::Lvnd=bU|Zrb!l?CLvL;$Wq5Q~00000K?$PmRscZ(Pyk5+GXOFG0000000000Lvnd=bV-S-Z,p_@WqAMqLvnd=bW?$@OJ#XbVRB)[0000000000Lvnd=bVY7sa)Qrc
+::00000Lvnd=bVOxybaHQbOJ#WgLvnd=bW(w)Wnpt=LvL;$Wq5P|00000Lvnd=bVOxia)Qrc00000Lvnd=bVG7wVRU6kVRL8zLvnd=bVy.yXhdOjVE^OCLvnd=bVp[$
+::NMUnmP-[XmZ2$lO00000Lvnd=bVOxybaHQbNMUnm0000000000Lvnd=bW?$@NMUnmP-[XmZ2$lO00000Lvnd=bVp[wQekdnZ,2eoZUAEdVE|)QZUA2ZX#j8lUjTFf
+::V,qdf0000000000B?.~)IshdAa{yZaB?.~)T?t;800000F#s|EHvldGFaRz9FaRz9F#rGn00000M_d)Vd2[7SZA4{eVRdYDOhZXT00000YXD]casX}sWdLjdGXOFG
+::E(yZzYyfNk00000000000000000000B?,r0H2_&0EdV6|FaR|GbpR~[B?,r0GXQk}EdV6|FaS0HbpR~[B?,r0G5~b|EdV6|bpR~[B?/5,E(wn9FaR)BFaRw8B?,r0
+::GXP_(B?,r0Gyr4)0000000000O8_v)QvhE8MF4F8bpUJtVE}XhX#j5kZU6uP00000O8_v)QvhE8K?&X^bO31pb]u_jbO31pZvbupNdRsDbO2=lasYM!VE}9Z00000
+::O8_v)QvhE8QUGNDZUAKfcK~4kYye3BZUA&uWdL#jb]u_jYybcNO8_v)QvhE8NB~y=NdQCu0000000000O8_v)QvhE8Pyk5+L/zm]B?,r0H~@$^cmOQ_B?,r0GyrG.
+::cmOQ_B?,r0GyrG.cmOQ_B?,r0G5}},cmO2/FaR;DXaINsEdV6|FaR;DXaINsB?,r0G5}},cmO2/FaR;DXaINsB?,r0G5}},cmO2/FaR;DXaINsB?,r0G5}},cmMzZ
+::000001;evp000005C8xGBme,agd6|?gb+A#AOHXWn)zTvOqUuymi{U2=Fc&5[[Bwx09fDtiq?wX1;evp]A8{R{d?Nt{R04z]8,5]KLh}ApaB3?KM)-M!2tkNC/$ME
+::0Kou};3m6?0e}aQLIHr&#Q,[5C/$ME2tf#uXaWHF1ONaOC/$Mk2mwI)00BSNAOL^/{d?Zw]9Morzyn{^00000]HaO2]/.d{^hSO7_D-8I_y(AP{d?Eq{R04z2mk;)
+::8]H/Y=?q^(_zHjc^5(NL]aBB]$Ob_p.~$P(0{ubL!Gd4.^8$QGC/$Mk2u)ow00BSN/0XXVhyp.+sY#1c9{~w#VF?^Kh)18M3#y1xioz)1NdZ8+KLHDCp$Gs}NRdFf
+::Xb1o^NtHmkDF]]GlR^wqdO|6S_WpcGe,zlof)HOpHUI#SXbwQR2nPT)Xc9oVX-}Y~l|m@s]A_a5mqICvr~,Lw=mh|[,-K!476E|LSOI|2I{,N&IsgE$GXMavDF/LN
+::sQ?_9r~,LwKLH5qp#uO]2?;{T=mJ3bNCWt{2mus}A&k4^00{t,XiGr)00BSNfC2zDNC!aq;U/^F^SXTa0|;ap/$r}j/e!B@004lJ00BSNr~,Lw;U/^FDT7_3/$r}j
+::/}bx-/e!B@004lJC;7h&Xa-#}sR97_00BSN7zY5-,!&yrsE$DR^aXq1HUI#Si2DDv]Xo#Xe,zlo1Nr|{^U}WfXu|.J=^f$?.vS8h!Sw&B{d?iz_y+X4_D/U|^hUk.
+::]/;!y]HasBzyn{^00000C/$ME3c(!8=?rO@O96n=4hDeIZ2dvgjU]77s1.o[9{~XCq5uF@XaNk&3k3ktslfn|0ssIM?jMm_e,pmTtp5L0NP!2DKLH5qfB,ngC?22Y
+::9{?pJLI40&Nr4BEAQ3@Mzyn{^]A8{R{d?Hr{R04zC/$Mk2nj(?]8,2[/R67w/DZ2?00BSNC/$Mk2n|5^;3j-E/+4K[0RVu~004l}00BSNU/-3xC/$Mk2oXT};3j-E
+::/+4K[0RVu~004l}00BSNU/y|w004l}5C8xaC/$Mk2o,s2/R6$[/KKls00BSNC/$Mk2pK]6/0r-c;6{7k0sw$g/llut00BSN=np{o9{?Px0HL3n{d?fy]9Morzyn{^
+::00000]HaO2]/.d{^hSO7_D-8I_y(AP{d?Eq{R04z]aB8[]#cK^r~)wrAHf,$^5&W{]8,7aD-B/k83usT8U}#U.vR,fEeHTq/{y{a/sX^_/R6)]/6nhBlmGyf^-LS)
+::$o[f.773P&/{y{a/sX|{r~))u3Juws2m=)$2[TqsKLHBs$]ZaV/R6^|.~$w[.2eZV]aB]F1pojP/R6-^.~$)_,Z=?Q]#d5Hr~)wrAHf,$YW+9Hp8]&[fDQmulfnRz
+::e,zWjAPxXjb]/X3mm(bsn8E;j_hx)GEdT)J_.1@H_GWwFXeL0Z?/n^3YA!,kNGAZPXeL6bN.qJaiWWfmNGAfR@k7O_.vJ8i!UzCVXaW|@0Kou}s8K.q/sX|{/R6)]
+::00BSNXeU6aYA.?lh$aB3XeUCciY[_Eh$aH5O#lECwgME)2nK.C!VbuqSNuVf{{jH;Edl]k^+.X+_GWwF2q,oi^XYsb;O35b;AVT]/R6@{C@]1]3NJya.~$w[2q!|R
+::DlY.4C@]7_NdW-q{{jH;Z2tdLUkCv4O9uc{wZZ^=7Y2aR^=5nE83usT$PU-;9|.{Qivj?ts3t)E;O35bsxCpP;AVT]0RVu~.~$w[2qyrks3t;G3NHbv2qyxmh$cX)
+::s3riZiY_H]sxASkssa@th$cd,LJirPs3robD,,tMwZZ^=r~)wr7Qq0K.-}[0&KZOS8UO$k=xTQO4FeX73IG5Us3kzDh$R52sx3jOiY+=Ds3k)Fh$RB4?/ny|t.&1&
+::s1.o[.vJ2g!~XwNC@_OvDlb8+h$R52C@_UxiY+=Dh$RB4bHV^Te,zWj,1_ahEdT)J0rUS;{d?iz_y+X4_D/U|^hUk.]/;!y]HasBzyn{^]A8{R{d=mZ{R04z;]ut$
+::;pTn$2@l_Dr~n4b2o1[a3I?4EufPD(]8+~@.~$G#3H@EnE,T1(=m7[H2@l_D2[T1bKcN8eZ2|yPC;OqK4gEut2MmDH1O|Z8q8SI9p(105H30yWpt&H^/R6n/qB#Vc
+::F#!OSp}ho~/sXz=puGp1Edc;O/sXJypcw@40ssIM/sXz=/R6n/CjkJI(A|YX.vAElLID6(${^(JNd/Z^NHIY9KLH5q03k{Gg8&@j(cOiD.vAElBme)YzX1j7A]_wY
+::$rV8Ps1.o[9{~yLAR$Qlg8&@jt.&11zX1j7L/wF(@,k30=K~I]{{aQ.A^M@b?^Y(N;U/^F$Q3~O=[mfv9{~yL0|Nk5KLH5qBLe^bzX1?HU/-SCs3kzDsx3jOh$R52
+::s3k)FiY+=Dh$RB4=p{g[s3icY?McR3sx1Mj=p{m^iY!5@s3iiah$KL&=p^KDh$KR)?Ma4O=p^QFt.&11[4,0){{aQ.WBmVA{{RN.sRRI2@7#rg/{ySa/sXJZh!sHj
+::$rV8P9{~yLBLe^bKLH5qV,?zG#K8d3@gIp?p8yQ(U/-SCh$KL&iY!5@Xe0osh$KR)YAgY&Xe0uuh$TR(h$H~1iY.B[iYx+Ch$TX+N.ROCh$I53NF-e1h$R52NF-k3
+::iY+=Dh$RB4=fD8b.v9]ejKKiWBmDnV{{RN.0R{k6{{aQ.pbh|3zX1?HpaK9@$R$9j@85;)$}K]uh$R52$R$FliY+=Dh$RB4s3kzD@85;)$Rz.(sx3jO$}It[s3k)F
+::iY.B[$Rz[+h$TR(s3icYh$TX+sx1Mjs3iia$R$9j@1KW4$}K]ut.&11h$R52$R$FliY+=Dh$RB4=p{g[@1KW4$Rz.(?McR3$}It[=p{m^iY.B[$Rz[+h$TR((cOhY
+::=p^KDh$TX+?Ma4O=p^QFMgRa5{{aQ.0R{k6=fD8b(cOiD{{Rl^paK9@=p/a@?^Y?Q?MTL2h$R52=p/g]iY+=Dh$RB4$R$9j?^Y?Q=p-EC$}K]u?MQ}N$R$FliY.B[
+::=p-KEh$TR($Rz.(h$TX+$}It[$Rz[+$R$9j;O2ke$}K]utib[$t.&1&h$H~1$R$FliYx+Ch$I53h$TR(;O2ke$Rz.(iY.B[$}It[h$TX+iY!5@$Rz[+h$KL&h$R52
+::h$KR)iY+=Dh$RB4SpWYQ=p{g[@85|-?McR3h$R52=p{m^iY+=Dh$RB4=p^BA@85|-=p^KD?MTL2?Ma4O=p/g]iY.B[=p^QFh$TR(=p-ECh$TX+?MQ}N=p-KE[4,0)
+::LjV64ZZ.g].~$t@{d@A]]9Morzyn{^]Haa6PXqwbKLn5K=K}$&@gIg/3IhOC1^prAMF4=)BmjWY69$0N6b69O&K3lOEdUgoNC5^$2_xbR2t_2o9{~yLsUU=!E((RQ
+::&mEXd/R6n/.vy8Bh$TR(s3icYiY.B[sx1Mjh$TX+s3iia?/3/!.vy8Bp#cC@f(l;G2nK.CO#ld-2@l_DEC30c/R6q;s3m==h$R52sx5x0iY+=Ds3m_@h$RB4{{R8(
+::iUI(s4-enJ1^prAC;Fk}X&s/D4,fxs&?fUas1.o[9{~yLVgUeDs3kzDEC2@Z{{Rl^/R6n/h$R52sx3jOiY+=Ds3k)Fh$RB43/zF92nK.CEC2|bXe2;Xh$R52YAivi
+::iY+=DXe2^Zh$RB4]Hag7zyn{^|HA/$DHK5Y2oym1KLH5q!U6zPC@r6s?/nLiDl9?&h$R52C@rCuiY+=Dh$RB42qZwM?/nLiC@o+?3M[gXDl7r12qZ$OiY.B[C@o=[
+::h$TR(2qXZhh$TX+3M?Js2qXfjDHK5YNEAT&9{~yL!UO;RNF-e1?/nLiN.ROCh$R52NF-k3iY+=Dh$RB4C@r6s?/nLiNF+HMDl9?&N.P1XC@rCuiY.B[NF+NOh$TR(
+::C@o+?h$TX+Dl7r1C@o=[3lu?4DilEZUjYm2!T|tO2qZwM?/nLiC@o+?3M[gXDl7r12qZ$OiY.B[C@o=[h$TR(2qXZhh$TX+3M?Js2qXfj|HA/0zyn{^]HaU4]/.d{
+::^Y)m5{d?Nt{R04z761V7$ihPT|9=6g]8+~@]aBB]]#cN_^y7O!=l}q;?Hq+mAt5D]/DRNQhW.DS=mP-&$if2o1OUEL0|S6k0sw(00RVu~/9~&h00BSN/06FR761V7
+::$i^nX=l}q;?Hq+mA?k#F/DRNQcK!dC=mP-&$i[Qs/159g?Hq+mAwd|C;wF3G1OR|i0|0?1f(-k300BSNpacLk69NFV761V7$jU;b=l}q;?Hq+mAt5G^/DRNQWBvb]
+::=mP-&$jSow/0r-c0|0;h/sX;]Apn3;00BSNpaK9i69544XwE|U=l}q;?Hq+mA&P~5/DRNQRQ?/#=mP-&XwCxp/0r-ch9iJd;pUL};O39{0|0;hA]@C=0RVu~00BSN
+::U/qF#GXQ{60ssIM699lx/0r-cfB]us6aWD5h|+s(2mt_K?Hq+mA/Bh,/DRNQJ]lZe=mP-&/0r-ch|(W200BSN/159gpaB516aWD5h}J]-2mt_K?Hq+mAps|m/DRNQ
+::F#Z3R=mP-&/159gh}Hu60RVtf00BSN.~$sX{d?Zw^Y,-,]/;!y]Ham9zyn{^]HaX5]/.d{{d?Nt{R04z6#xM6sKP@||9=6g]8,2[]aBE^^W&Fz=l}q;?Hq+mAt5D]
+::z=9=^7XAO1=mP-&sKNsI1OUEL0|S6k0sw(00RVu~/9~&h00BSNzyts]6#xM6sK!G1=l}q;?Hq+mA?k#Fz=9=^2L1n-=mP-&sKx]M/159g?Hq+mAwd|C;wF3G1OR|i
+::0|0?1f(-k300BSNfC2zC6#xM6sM;pL=l}q;?Hq+mAz?$xz=9=^]!+#q=mP-&sM.Sg/0r-c;pUI|;O36_0|0;hA]@C=0RVu~00BSNU/qF#GXQ{60ssIM699lx/0r-c
+::fB]us6aWD5h|+s(2mt_K?Hq+mA/Bh,z=9=^.u)ZU=mP-&/0r-ch|(W200BSN/159gpaB516aWD5h}J]-2mt_K?Hq+mAps|mz=9=^)ft3H=mP-&/159gh}Hu60RVtf
+::00BSN.~$sX{d?Zw]/;!y]Haj8zyn{^]A8{R{d?Nt{R04zC/$ME2vtD(]8+~@0s@]2/R6$[/6nhB00BSN3jlyp?^Y(NXbB4oYXtxie@b6o2[OD!DrsyuY8C+EOaK2=
+::{d?Zw]9Morzyn{^]A8{R{d?Nt{R04zC/$ME2vtD(]8+~@0s@]2/R6$[/6nhB00BSN3/=,q@Lz?Oi3J{0h;!lQ2|-2#j0FG[pFsd|Dh+uAOKEL5YZd[F3/-LA{d?Zw
+::]9Morzyn{^hy)x^9C$!X5Df&Q=+)XqG6Vom6&7PVb^W1Y1^uC71qA@48U^GQ5gt5FnMb8=u)-UZH&78;[(o_-n[75CQ[WsTlt/5}l]!+tww|^5#~wFs,SMf={~SDS
+::m_As6[kg-39v_^,S.YTann$]A{70s4T^3wnJ084Fd?=h.ogY4Kz8[!U9)Vvuzyn{^e}8}f00000]HaU4]/.d{^Y)m5{d?Qu{R04z=?Pxl6oCzq]8+~@ivWO9i~;wO
+::?H_z1iD^!MYXtyNNJT+nDFFydNx?huYybZ?mO=oLH35K9m&/{.=?rq03Ic#qC?20BN)BH?2x+gXDDfXSivRyL.~$t@kpKUe.~$t@y#N1~?H_z1ivWO9Nku[oYXtyN
+::$VNc8DFFydNx?huYybZ?wFUrDmHq!U=?rq03Ic#qi]2wxC?20BN)BH?2x+6LDDfXSivRyL.~$t@djJ2Ih=Kx;3jq^$iU5F8X=!t~N)BH?XhuM|DFFydX~G}4YXAQ=
+::{d?Wv^Y,-,]/;!y]Ham9zyn{^00000]HaU4]/.d{^hSO7{d?Eq{R04z=?Pxl6oCzq]8+~@h=Kx;?H_z13/_3&ivWO9iD^!MYXtyNNJT+nDFFydNx?huYybZ?5eEQI
+::cMSj.[B{!+^_@7+l|llMF}k2_HUWTA6uO{p5Cs5F]v3|L5e5KH5W1jlF}k2_[xuYF.~$t@U/qD@=?rq03Ic#qi]2ktC?20BN)BH?2x+6LDDfXSivRyL?H_z1?/o05
+::ivWO9Nku[oYXtyNh)$oSDFFydNx?huYybZ?_VIt6{s-K4wL$?Ve|kVn+(?Ak8xI6dIRpSt[khRHP#.[|G9Eil6h]sja0dWSQ=YI-WF9nbl|/U7R39WxwjMi9m_1s7
+::,PgIW{T@_OSRXx397nlsxktWkIv-buTc5B^[C)2^d?=e-o,zGMg(#d_.AAx+5Cs5FzZ]eq#~(na(^}Rt1|Gdm[DIQ}[;,^45C#BG[kg-3[Dsp2J|418]F,-25C/HH
+::[;gz1Qy#NUbRIr#l]!N/wjL#J,B(HpcX|L!cK81].~$t@8UO#6=?rq03Ic#qi]2ktC?20BN)BH?2x+6LDDfXSivRyLivknNiU5F8X=!t~N)BH?XhuM|DFFydX~G}4
+::YXAQ={d?iz^hUk.]/;!y]Ham9zyn{^A0PwOe}8}f00000]HaX5]/.d{{d?Qu{R04z^5&W{$]t/S]8,2[]aB8[=mRP$2[L=eAq4/tH2@|=zj6d|X#fCJ004keB?)]v
+::2mk=]2w6b-U^vU3/sXJy00BSNQ~@0A?H_z1i~;wOivWO9iD^!MYXtyNNJT+nDFFydNx?huYybZ?.~$t@9{?NBv^b$/6aoM=YC.]!?jMg]Z2}6,i~xXAscCDtj0FHu
+::XhlG{DFFydX~7[3Z2$i@]8,U1.~$t@5C8v{ltKVeRQ~[p+dB#yAOL^/{d?Wv]/;!y]Haj8zyn{^]HaX5]/.d{{d?Qu{R04z^5&W{),i+b]#cK^e-~e0U/qGA004ke
+::DF6TzsKPUg6hQ#d3/-NW.~$w[IsgBc?H_$2ivWO9NdaHDYXtyNNJT+nDFFydNx?huYybZ?ltKW}p8]&[i2nan.~$z]EdT$Pe@kCpU/-SCsKPUg3GrVzKS2O.=m7v!
+::3IKpo?jMcYDFFa93;Utui1lAM9{~w#p#T6?YXtyNe,pk.N)BHBO#lB?UjYegFae)$a{?[cAOL^/),gjw{d?Wv]/;!y]Haj8zyn{^00000]HaX5]/.d{{d?Qu{R04z
+::]8,2[?H_z13/-|$ivWO9iD^!MYXtyNNJT+nDFFydNx?huYybZ?=?PxF6[dzotO66u?jM-2iU5F8iD^&NN)BH?XhlG{DFFydX~7[3YXAQ=Gys57w!#UK=?rq03Ic#q
+::C?20BN)BH?2x+dWDDfXSivRyL.~$t@SN{K).~$t@gZ}[QiEbQItU[V]?H_z1ivWO9Nku[oYXtyNh)$oSDFFydNx?huYybZ?lm.A1pDqA#BmMtW=?rq03Ic#qtHKG9
+::C?20BN)BH?2x+6LDDfXSivRyL.~$t@KK}ogsKNq~3jq^$iU5F8X=!t~N)BH?XhuM|DFFydX~G}4YXAQ={d?Wv]/;!y]Haj8zyn{^]HaU4]/.d{^Y)m5{d?Ks{R04z
+::2n2vq|NjB0=o0|B761Uy$ihPT]8+~@]aBAZ]#cN_^y7OU=l}q;?Hq+GAt5D]/DRNQ;of[Y=mP-&$if2o1OUEL0|S6k0sw(00RVu~/DZ2?00BSNKn4Ib761Uy$lgNv
+::=l}q;?Hq+GA+zOc/DRNQ+cXII=mP-&$le0]/1fXk;YNGl0|0;h0sw(0fdP;G00BSNKm.6Z761Uy$l]lz=l}q;?Hq+GA?k,H/DRNQ#QOi2=mP-&$l@O|/159g0|0;h
+::/sX?a/R6$[00BSNU/-R&6953vXy!us=l}q;?Hq+GAt5M{/DRNQwfg]/=mP-&XyyX?/159g1OR|i;3j-E/sX^_K?(bK00BSNU/qF#GXQ{60ssIM699lx/159gfB]us
+::6aWCwi0VT52mt_K?Hq+GA&Q57/DRNQp!+xp=mP-&/159gi0T6Q00BSN/1fXkpaB516aWCwh}J]-2mt_K?Hq+GAps|m/DRNQlluRc=mP-&/1fXkh}Hu60RVtf00BSN
+::.~$sX{d?cx^Y,-,]/;!y]Ham9zyn{^00000]HaU4]/.d{^hSO7{d?Bp{R04z=+)Y!|9=9hAAJC-i2/yOAAJF.]aBAZ9}xig2n2vq=o0|B2mk=k69E8_{|]B9]#cN_
+::=_#Si^5&Z|.~a&$2mk=]2vtD(/R67w0s@]2U[_!a00BSN7ytm!2,X18^y7OU=l}q;?Hq+GAt5D]/DRNQWcvS@=mP-&2,U#T1OUEL0|S6k0sw(00RVu~/DZ2?00BSN
+::APN997ytm!2,,PC=l}q;?Hq+GA?k#F/DRNQRQmsy=mP-&2,)2X/1fXk;+Z-R1OR|i0|0?1f(-k3/R6$[00BSN00/my6953vXx?8k=l}q;?Hq+GA+zOc/DRNQL/C.h
+::=mP-&Xx/-)/0r?j;YNGl0|0;hApww500BSNAO.-56953vXzoJ!=l}q;?Hq+GA?k/I/DRNQH2VLS=mP-&Xzl{}/159g0|0;h/==&up#XqV00BSNKm.6Z6953vXyQWo
+::=l}q;?Hq+GA?k,H/DRNQCHnuD=mP-&XyO9./159g0|0;h/sX?a/R6-^00BSNU/-R&6953vXy!us=l}q;?Hq+GAt5M{/DRNQ7W+5}=mP-&XyyX?/159g1OR|i;3j-E
+::/sX|{K?(bK00BSNU/qF#GXQ{60ssIM699lx/1[vofB]us6aWCwh|+s(2mt_K?Hq+GA/Bh,/DRNQ0s8.!=mP-&/1[voh|(W200BSN/159gfB]us6aWCwi0VT52mt_K
+::?Hq+GA&Q57/DRNQ]!fjn=mP-&/159gi0T6Q00BSN/1fXkpaB516aWCwh}J]-2mt_K?Hq+GAps|m/DRNQ=lTDa=mP-&/1fXkh}Hu60RVtf00BSN.~$sX{d?l!^hUk.
+::]/;!y]Ham9zyn{^00000]HaX5]/.d{{d?Nt{R04z6#xLxsKP@|{|f/5]8+~@]aBAZ^W&FT=l}q;?Hq+GAt5D]z=9=^&=!P9=mP-&sKNsI1OUEL0|S6k0sw(00RVu~
+::/6nhB00BSNAOZk16#xLxsPaPj=l}q;?Hq+GAwemTz=9=^y!ro]=mP-&sPY2(/0r-c/sX;]/R6(Z00BSNU/qF#GXQ{60ssIM699lx/0r-cpaB516aWCwh}J]-2mt_K
+::?Hq+GAps|mz=9=^srmnx=mP-&/0r-ch}Hu60RVtf00BSN.~$sX{d?Zw]/;!y]Haj8zyn{^]HaX5]$P(_{d=]j{R04z|HA/$]#cH]r~,K^]aBB]0SJK7/KKothynn+
+::sOmsDt]PnctolGXtM++S=mP-_=?PxF0+a1+2mk=]2t_2os_5ZNsqR2I@JEGer{-L8??~iVrs6;3?l,/MrEWlZ?JtFDq.sEU=@eh4qcT9b00BSN2mk=k0U1I02mk=]
+::2nj(?/6nkC00BSN2mk=]2suFc/sXJZ0RVtf/6nkC00BSN00Q^o2mk=]2t7dg/3Gi!1pt83#1DW{gCYQtA]@C=/llxu00BSN2mk=]2th#k]8+}X/3Gi!00BSNlK}WO
+::/R6-^fFb~qp927t2mk=]2wgz=fFb~q00BSN/e!E[2@PKU/3EN&DtRAMiUt6=s4hgQh]_2!sX|5giB16ds8T@=2?;}lDS.fy3V9z?C=oz/DHT9[iXs##iK-m)sH#dS
+::34sc#2mk=]2pvHA=^dgB00BSN|HA/0{d?&+]$S4x]Haj8zyn{^]HaR3]/.d{^hSO7_D-8I|3e7T{d+kZ{R04z^X7c{.~$)_/llut^yYo}_2z#0_U3?2lmGvh=r=(Q
+::/llut/DZB]6CnVR2mk=]2vtD(/sX;]00BSN=z{~1a{?s92mk=]2vtD(f(^rl/o}04.~$t@00BSN=z{~1X#xmKHjw}k=|cdK=z{=}KYakH]n)MDAAJC-]#c|v.$DR!
+::D,,sh)|!a~+e/j-/e!B@.~$w[)f$9IltKWJa|QrWbN~M}zXAYptpEU2qJ98V/R6)]/6nhB6a[g3=|cdK2oQi$/e!B@D9JTA/6nhB!u|i3=z{~10Kqnk2mk=]2vtD(
+::0s@]2/e!B@00BSN&0d7U=mQd}3IhPS2{AzV2mk=]2sJ@YLVZA!0RVtfAQ@dU00BSN2mk=]2vtD(0t0}#/e!K^]8+~@00BSN2mk=]2vtD(f,pX//R6@{.~$;|00BSN
+::2mk=]2vtD(f+#-$/llut.~$@}00BSN.~$t@{d-,E|3e6o_D/U|^hUk.]/;!y]HapAzyn{^]HaR3]/.d{^hSO7_5OTF|APt9{d+kZ{R04z]aBB]hyp/l]8+}X^5&W{
+::^X7i}^yYv0=tBUxA3/HJAprnX2mk=]2vtD(l[b7v0s@]2/R6-^/1dCn00BSN82|tj0Rn)h/DZ2?/{N}a2m,jo=o;jJ2mk=]2vtD(0s@]2/e!B@/1dCn00BSNhyp/l
+::A3/HJ.~a$rAAvz}0RaG1/$r}j/S(LoH2wdV1ONaO/$r}j/S(Log!}+Ol[b7vi2]{mXc7QX=obLFKS4op.~a$rKY?AU0RaG1/!]/T/R6-^CH@=G1ONaO/!]/T/R6-^
+::b]HI9/ll=zfKmXF_2PQw=)j;-/ll=z/8OvS6CnVR2mk=]2vtD(/sX;]00BSN=u.iaa{?s92mk=]2vtD(f(^rl/o}IA.~$t@00BSN=u.iaX#xmKGm!uh_BMRrAj30[
+::0Rn)hrT-hy=#v4FAj30[0?Lwj0Rn)hg#G_QD#J62?/o05ivWO9Nku[oYXtyNh)$oSDFFydNx?huYybZ?ivmEo=o12w6Tvf!e}O[90R{k62mk=k2oXT}0s@]2/R6-^
+::U@KpKXaWHF2mk=]2vtD(00BSN=qEw?X$t]Yiwgi+stW,E/==_z2norW0Rezg/9~&hb7BCI2q^Dj=nnw.Vg3J@2mk=]2vtD(0s@]2/R6Pd/KKls00BSN=o0~vVFCzC
+::;3k3K/u8Up/KKls#r].62mk=]2vtD(0s@]2/e!T|.~$t@00BSN2mk=]2vtD(0s@]2/e!B@/1dCnb3y=.00BSNivmEo=u.iae@dWUY61vL?JtFD00970e}O[9VF3VC
+::/zIzD/Zp(T/1dCng8cuN1pojP/zIzD/Zp(T/1dCnm.^#g?Jvb[N?Kn2=mQd}$]rnn2{AzV2mk=]2sJ@YLVZA!0RVtfAQ@dU00BSN2mk=]2vtD(!UBM~/R6AY]8+~@
+::00BSN2mk=]2vtD(f,pX/fl?gG.~$)_00BSN2mk=]2vtD(f+#-$/ll=z.~$-{00BSN.~$t@{d-,E|APsU_5Qp^^hUk.]/;!y]HapAzyn{^A0PwOy[^anA].pY@X|j$
+::AOHXWdPgY6TFq85]A8{R{d=XU{R04z]8,8^A8.M2ssI2~UjP8P/0l0Je,ysc5(![cC/(jY9|1veKmh;$2th$nA9+XQU/qGA004l}2mk/S;U/^F/{yYc7XSa31ONaO
+::;U/^F/{yYcs{a3&U/-U7004ke{d@P}]9Morzyn{^]HaR3]/.d{^hSO7_5OTF{d?Qu{R04z^yYi{]aBB]]#cN_^5&Z|_2z(1^X7p0v/-XO=?PxF0f8xz2?;}^C}BYP
+::.~$w[00BSNzykm]bOQjC2mk=E6G0J@XaYdFC;6dB2mk=E2)dspXaWE;C/+(_XaWGa=mQd}XpR8-=?Pw+0s$)K2mk=k2t_2o;pUO~;O3C|/{z0_0T6+FU=je400BSN
+::Xc7RC=mG&w004ke4,(oZ=?Pw+6=5ooe,yrx=?Pxl0Kq;ymG}Rb@,jm/.~$-{;pUS0;O3P1/{z6|/sX^_/R6)].~m6[{d?Wv_5Qp^^hUk.]/;!y]HapAzyn{^]HaX5
+::]$P(_{d?Qu{R04z]#cH]]aBB]6$1dY]a2312mk=E6G0J@XaYdFXaWE;Xo]7jC/|YrXpTVn=?rm~9{~yLp#cC@2mk=k2w^0]VG/n500BSN0096s0RezgU@K#Ot]NO)
+::Xof+f004kehynol2mk/S2mk;)0O10WX7~S?@,jm/.~$z]/R6)].~m6[{d?Wv]$S4x]Haj8zyn{^00000]Haa6{d?Qu{R04z2mk=E6G0J@XaYdF]aB8[r~({qlmY/?
+::XpTVn=?rm~9{~yL0RjM22mk=k2w^0]fC51IVG/n500BSNKmh;X2mk=k2w6b-0w93W0RVtfU=je400BSNp8]2-004ke2LJ#R2mk;)0D&ROKKK8Z@,jm/.~$w[.~m6[
+::{d?Wv]Hag7zyn{^00000{d?Qu{R04z2mk=E3PBN)NC7~)=K}z$=m7vU#{mGeNrgc9=m0@Z9{~yLK?-|&NR2[G=?rm~9{~yL!2keMUjYEQ004keU/PlNUyT6y2LJ#R
+::2mk;)0O1FbANT,4@,jm/.~$J$.~m6[{d?Wvzyn{^00000]A8{R{d?Qu{R04z]8+~@2mk;)0Ko~768Ha@@,jm/.~$t@.~m6[.~j-N2mk=E3PBN)NC7~)NC5yeNQFT8
+::2mt_JONl_F&K!kiNR2[G=?rm~9{~yLX#$IyNr@dY004ke{d?Wv]9Morzyn{^{d?Qu{R04z=K}z$M,/w}Ap!uj2mk=E3PBN)NC7~)r~v?pONl_FYXJbXNQFT8C/;Sp
+::NR2[G=?rm~9{~yLp#T6?{{Rc@VE^PB004ke2LJ#R2mk;)0D&jU;[W!V@,jm/.~$J$.~m6[{d?Wvzyn{^00000]HaL1]/.d{^hSO7/tvC;;QD{~;{t(A{d?Qu{R04z
+::?H_6h=mQGN2@/=wDgg@MOCbP}=mQJObAey[2@/=wDgg^NOd$Y~=mQMPgMnZ82@aosDgg|OOCbP}=mQJOb&9]F2@/=wDgg^NOd$Y~=mQMPmVsaR2@/=wDgg|OOCbP}
+::=mQJOcY$B{2@/=w2mk=E3PBN)IB9G6NC7~)]aB8[$O8a0v/zRNfdc[vNQFT89{~gFAp.zZNQprC9|05V!2$qONR2[G=?rm~9{~yLK?_3(Xc|EI2@YSrKMeq}$N?OU
+::WC8$_/{zC~/sY0|/R6;_.~$yZx(Hr_2mk=k2q8fEU?ZRA0RVu~00BSN004l}3/-NW2mk;)0AUT0mG=La@,jm/.~$w[=K~n3;]vb1;pUO~;O3Bd/sX;].~m6[{d?Wv
+::^hUk.]/;!y]HavCzyn{^00000]HaO2]/.d{/tv9/;QD]};{t#9{d?Qu{R04z?caq$=mQGN2@/=wDgg@MOCbP}=mQJOVu4[y2@aosDgg^NOd$Y~=mQMPlYw8j2@/=w
+::Dgg|OOCbP}=mQJObb),]2@/=wDgg^NOd$Y~=mQMPm4RRQ2@/=w2mk=E3PBN)Hfe15NC7~)=K}z$NCE(fCjtPp0RjNDNQFT89{~dEp#cC@NR2[G=?rm~9{~yLAprnX
+::83F,5/{z6|/sX^_/R6)].~$sXZvOw5004l}3jhEV2mk;)0O1mmPxk-p@,jm/.~$J$;]vY0;pUL};O39{/{y{a.~m6[{d?Wv]/;!y]HasBzyn{^00000]HaL1]/.d{
+::^hSO7;C6oa;)mYl=Pv/H{d?Qu{R04z|3d+L?SF;s=mQGN2@/=wDgg@MOCbP}=mQJObAey[2@/=wDgg^NOd$Y~=mQMPgn@i92@aosDgg|OOCbP}=mQJOb&9]F2@/=w
+::Dgg^NOd$Y~=mQMPmVsaR2@/=wDgg|OOCbP}=mQJOcY$B{2@/=w2mk=E3PBN)IB9G6NC7~)]aB8[r~@2rlmh]@NQFT89{~jGAp.zZNQprC9|05V!2$qONR2[G=?rm~
+::9{~yLK?_3(Xc|EI2@YSrKMeq}$N?OU$N?P9/{zC~/sY0|/R6;_.~$yZ9sd892mk=k2q8fEU?ZRA0RVu~00BSN004l}3/-NW2mk;)03jEV_St(o@,jm/^yYj?.~$w[
+::=K~k2;]vY0;pUKe/{y|^.~m6[|3d)g{d?Wv^hUk.]/;!y]HavCzyn{^]HaO2]/.d{^Y)m5;C6lZ;)mVk=O-O9{d?Qu{R04z?f.?B=mQGN2@/=wDgg@MOCbP}=mQJO
+::V}W1z2@aosDgg^NOd$Y~=mQMPl!0Hk2@/=wDgg|OOCbP}=mQJOb&9]^2@/=wDgg^NOd$Y~=mQMPmVsaR2@/=w2mk=E3PBN)H+)A6NC7~)]8+~@C/|X969NFVNQFT8
+::9{~gFp#cC@NR2[G=?rm~9{~yLAprnXeE|TJ/{z9}/sX|{/R6-^.~$vY),6IJ004l}3jhEV2mk;)0HGX^v.SU&@,jm/.~$t@=K~k2;]vY0;pUL};O38c.~m6[{d?Wv
+::^Y,-,]/;!y]HasBzyn{^]HaO2]/.d{^hSO7_D-8I_y(AP{d?8o{R04z|APS02mk=k2q{4M/6niU^yYl|0RVu~.~$1X^#XiI00BSN=tDrc2?;}FG=T|_]8,yB761Uy
+::=raJhl|l!RU//q.0s@]2$YwzK0mA]100BSNfB,nAb3y=.e,zWj0ssG0h)ZUEe,y]W.~#|ubs|A26af_Wp9TOi!2keM2mk=k2qi&I/KKls00BSN6aWAelLi10761Uy
+::004ke2mpXmv/Y7!$R;Gf/KKls00BSN2mpW,Qvd+pfB.)!2@]60Dxnh^2nf?}9{~w#L@KjqLH^@#2nf?}0D&+582}Xv0ssIMc?sV@?Hq),I{^e)D1SiH3Il.B76]dS
+::8f].j699mc?VH78NDDwY_XdCXNe[6dbN+foUjY/A+(?C4qyPU[Gyw@9p9TQ2Ap!tY2mpZ66aawI,9HL57ytm!6)QG}2q![K/KKls00BSN2z+[)9|05VX#f9IlmZru
+::2n7|Yp8]5#!~XwN9{?Opl@DKj3jl!97XX0L6aoOW,aiU66#xLxdLh_Fs3t+9/KKls00BSN2z+[)9|05VX#f9I3k4dg=pxvfcLoTm{{j]2qyGO@l@DKjRR93BfB.)!
+::=@c}FXbIJtD&}/E9{~yLL@KlA/r#zpXbIJt_XfO32)1/H=^f$??i^@-Q~[86^#Z(|0s@]2fx.Zh76A#1h=K+@0K+,02n_mC=sy7Y2mk=k2xUO|00BSN2mk=k2xUO|
+::9{?Px0s@]2fr0?$0K+,0),l^q00BSN2mk=k2xUO|9{?Px#0o)A0s@]2fkFV00K+,0)}I(400BSN2mk=k2xUO|9{?Px#0o-B0s@]2/R6)]0K+,0)}I(400BSN3Il.B
+::RR=+19{?Px#0o;C$byp]7JUkvNDDx[6af_Wp9TOi!2keM2mk=k2qi&I/KKls00BSN6aWAelLi107XSdz004ke2mpXmv/Y7!=q5n;/KKls00BSN2mpW,Qvd+pfB.)!
+::2@]60Dxnh^2nf?}9{~w#L@KjqLH^@#2nf?}0D&+57yuOu6953PVD?_!^+7q}.~a&&=?Pw+0l^Mf?Hq),AR#M}?.7JZVD;v}002MMXhQ(z+M{w?2mk=k2rWSQ/5z_h
+::/G-SN00BSN=r=)5Ne}?776]dS699mc3IPer=zl=6bN+fo9|05V+(?C4qyPU[2mtWX3/]+b3jpxai2@}Ahyn|Xp8]c+Iw6Rf2mtWXNdXAUUjYp3NC69rC@SZN7Xcc}
+::{{{fDAp!tY2mpZ66aawI,9HL582|v#6)QG}C@_Pq/KKls00BSN2z+[)9|05VX#f9IlmZru2n7|Yp8]5#!~XwN9smFo]acQt8vp?&3jl!96##)J,8u?u,aiU6c^G.E
+::XeU7V/KKls00BSN2z+[)9|05VX#f9I3k4afs3O?!bp{BkzXBKQqyGO@Q~(^AfB.)!sS4DZXbIGsD&BL59{~yLL@KuDA]rbUXbIGs^+9?!2)1,G3IQ663jpxa2mtWX
+::2?|fYNC60oNdXDVUjYm2DItiO2mk=k2pvHA=^?(F/bQ[j/6nkC00BSNC/+(_=)hlQ/llxu=)^.U2mk=k2r+qU/9~+i00BSN/6p)9X8@dw0SJK7?$AXls008Q2!E+X
+::ECc{p3H[Nx=sQ69C4CZ8=^]3^?l,/MDgg-~=p#V-N+61KYy$uorr.=41OY(KNd,8A?OVmF=[S6C={rEVLm[yZ=?q^{=nDY3=?Pw+0?LYh2mk=k2t_2o00BSN|APRL
+::{d?o#_y+X4_D/U|^hUk.]/;!y]HasBzyn{^A0PwO0KjP~$p8QVgWelMKtc}y]A8{R{d?Hr{R04z2mk=E0U1I02mk=k2nj(?/G-PM00BSN2mk=k2suFc/$r}j0RVtf
+::/G-PM00BSNfC~6G=?Pw+0YNR1/159g2mk=k2t7dg1pt83gaCk2;3j-Ef(hS000BSN2mk=E6M-DcpaA$c=o3J?9{~Vy=@9.0X+,vg=?Pw+0l^Vi/159g2mk=k2t7dg
+::1pt83gaCk2;3j-Ef(hS000BSNKmqtS=o3J?2]f_9KLH49LI40&1ONaOA3XqZ=?dRJDKUr|X&YZ==?Pw+0f8=(/159g2mk=k2t7dg1pt83gaCk2;3j-Ef(hS000BSN
+::KmqtS=o3J?2]f_9KLH49LI40&1ONaOA3XqZ=?dRJDKUr|X&-x]=?Pw+0U;Au/159g2mk=k2t7dg1pt831Ob3j;AVT]VgZ0s00BSNU/-3y=o3Ks9|._lX#fCJDFA@y
+::1pojP?f.?i9{~#M?Ei(hDKUteX#xQG2mk=k2th#k/159g00BSN004ke{d?fy]9Morzyn{^5C8zs5LQ6?00JM[XaHas/XuG4$&e[U$bu/3+(M{l$N+e9/XuG9)T2$c
+::$bu/3R{.ED/eq4h;H.cbf.K~L$ppxPEac;kLjYhR/eq4h;H(-4;blY7D(,tiSODNE/eq4h;H.cbf.K|#fyo5Of.L0YL/(C^/eq4h;Ix1jf.2/J)FDkXD(,ti00000
+::00000000002m$~A0&iaJ5C8xG0000000000000000000000000b]x{jmINF-cmQB00RR916aW@g00000AQ1q70RR917yuan00000I1vDV0RR910000000000us/BR
+::0RR916aW@g00000AQ1q70RR918~^~v00000SP=k#0RR910000000000xIh4a0RR916aW@g00000AQ1q70RR914ge1T00000co6_A0RR910000000000U^k)Y0RR91
+::6aW@g00000AQ1q70RR914ge1T00000h!FsQ0RR910000000000^)1[G0RR916aW@g00000AQ1q70RR917yuan00000m=OSg0RR910000000000a6$lp0RR916aW@g
+::00000AQ1q70RR916aW;f00000xDfz=0RR910000000000/6ea]0RR916aW@g00000AQ1q70RR915(#nb00000(=CND0RR910000000000SVI7S0RR916aW@g00000
+::AQ1q70RR914ge1T00000=n),b0RR910000000000xI^Se0RR916aW@g00000AQ1q70RR916aW;f00000^z@hr0RR910000000000$VC8v0RR916aW@g00000AQ1q7
+::0RR914ge1T000005E1}[0RR910000000000C_SN,0RR91Pyhe_00000FjN450RR915FG&30RR9100000000000000000000000000000000000000000000000000
+::00000000000000000000[D~7p0RR912LJ#72LJ#7/1?XZ0RR912mk/82mk/8(=(xJ0RR912?;{92?;{9z!w030RR913IG5A3IG5AuonP/0RR913jhEB3jhEBpcepu
+::0RR91000001ONa4(=vrI0RR91000001ONa4z!m^20RR91000001ONa4uoeJ.0RR91000001ONa4kQV[e0RR91000001ONa4pcVjt0RR91000001ONa4kQM.d0RR91
+::000001ONa4fEECN0RR91000001ONa4a2Ei80RR91000001ONa4a25c70RR91000001ONa4P!|Az0RR910RR911ONa4U={#@0RR910RR911ONa4Fc$!T0RR910ssI2
+::1ONa45ElS|0RR910ssI21ONa402cs(0RR910ssI20{{R3P!;4y0RR910ssI21ONa4[D?1o0RR910{{R30{{R3Ko$Ui0RR910{{R31ONa4FctuS0RR911ONa41ONa4
+::fENIO0RR911poj51poj5U?5,[0RR911poj51poj5Ko;aj0RR911poj51poj5AQu3D0RR911poj51poj5/1(RY0RR911][s61][s60000000000000000000000000
 ::00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 ::00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 ::00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
@@ -3864,9 +4534,9 @@ Add-Type -Language CSharp -TypeDefinition @"
 ::J^1g3Q+P5Tc4cmK002G)Qgm!mVQyq]ZAEwh@,UG9QFUc;c~E6@W]ZzBVQyn)LvM9&bY,e@_~gmMQFUc;c~g0FbY,Q-X?DZy$pun$Y,cA(WkzXbY.Dp)Z(Yb,WdPIy
 ::Qgm!VY/131VRU6kWnpjtjQ~t!a!-t(Zb[xnXJtldY.LYybZKvHb4z7/005H!Ok{FVb!BpSNo_@gWkzXiWlLpwPjGZ/Z,Bkp{s2yNLu^wzWdLq/WNd6MWNd5z5CC([
 ::a${|9000XBUw313ZfRp}Z~zVfZDnn3Z-2w?4FGLrZDVkG000jFZDnn9Wpn[l5()B(b8Ka9000UAUw313X=810000pHb9ZoZX?N38UvmHe3/=CqZDVb40000000000
-::000000000000000000000000000000000000000000000000000000000000000000000000000000000000001yBG5C8xGc&q1-n4$mx08jt_fB,mhIG{-NSfFU2
+::000000000000000000000000000000000000000000000000000000000000000000000000000000000000001yBG5C8xGc&q1-n4$mx08jt_ga7~lIG{-NSfFU2
 ::c&X=(n4qYjxS-^O,r4d3^[D[)7[/VkIH5@PSfOa4c&g_+n4zelxS_0Q,rDj5^[M},7[{DeV4_rMfTED1prWv&z[pHi/G,!N0HYA2Afqs(K&.EjV54xOfTNJ3prf#)
-::z[yNk/G]+P0HhG400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+::z[yNk/G]+P0HhG4Afx~Q000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 ::00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 ::00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 ::0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
@@ -4152,6 +4822,12 @@ Add-Type -Language CSharp -TypeDefinition @"
       this is false-positive, as long as you download the file from the trusted Home Page.</li>
     </ul>
     <ul>
+      <li>wmic.exe tool is removed from Windows 11 build 22483 and later.
+      <div>In order to overcome this, KMS_VL_ALL v45 and later incorporate simple VBScripts to query and execute WMI functions.<br />
+      <div>This require Windows Script Host to be working and <u>not disabled</u>.<br />
+      <div>Furthermore, be advised, this may increase the ratio for marking the script(s) as a security threat.</div></li>
+    </ul>
+    <ul>
       <li>Home Page:<br />
       <a href="https://forums.mydigitallife.net/posts/838808/" target="_blank">https://forums.mydigitallife.net/posts/838808/</a><br />
       Backup links:<br />
@@ -4216,14 +4892,15 @@ Add-Type -Language CSharp -TypeDefinition @"
       <div>On Windows 8.1/10, it also handles the localhost restriction for KMS activation and redirects any local/private IP address as it were external (different stack).</div></li>
     </ul>
     <ul>
-      <li>The activation script consists of advanced checks and commands of Windows Management Instrumentation Command <strong>WMIC</strong> utility, that query the properties and executes the methods of Windows and Office licensing classes,<br />
+      <li>KMS_VL_ALL scripts make use of Windows Management Instrumentation <strong>WMI</strong> utilities, which query the properties and executes the methods of Windows and Office licensing classes,<br />
       providing a native activation processing, which is almost identical to the official VBScript tools slmgr.vbs and ospp.vbs, but in an automated way.</li>
     </ul>
     <ul>
-      <li>The script only accesses 3 parts of the system (if the emulator is used):<br />
-      create the file <code>"C:\Windows\System32\SppExtComObjHook.dll"</code><br />
+      <li>The script make these changes to the system (if the emulator is used):
+      <div>copy or link the file <code>"C:\Windows\System32\SppExtComObjHook.dll"</code><br />
       add the hook registry keys to <code>"HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options"</code><br />
-      add osppsvc.exe keys to <code>"HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\OfficeSoftwareProtectionPlatform"</code></li>
+      add osppsvc.exe keys to <code>"HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\OfficeSoftwareProtectionPlatform"</code><br />
+      create schedule task <code>"\Microsoft\Windows\SoftwareProtectionPlatform\SvcTrigger"</code> (on Windows 8 and later)</div></li>
     </ul>
             <hr />
             <br />
@@ -4231,17 +4908,17 @@ Add-Type -Language CSharp -TypeDefinition @"
             <h2 id="Supported">Supported Products</h2>
     <p>Volume-capable:</p>
     <ul>
-      <li>Windows 10:<br />
-      Enterprise, Enterprise LTSC/LTSB, Enterprise G, Enterprise for Virtual Desktops, Education, Pro, Pro Workstation, Pro Education, Home, Home Single Language, Home China</li><br />
+      <li>Windows 10/11:<br />
+      Enterprise, Enterprise LTSC/LTSB, Enterprise G, Enterprise multi-session, Enterprise, Education, Pro, Pro Workstation, Pro Education, Home, Home Single Language, Home China</li><br />
       <li>Windows 8.1:<br />
       Enterprise, Pro, Pro with Media Center, Core, Core Single Language, Core China, Pro for Students, Bing, Bing Single Language, Bing China, Embedded Industry Enterprise/Pro/Automotive</li><br />
       <li>Windows 8:<br />
       Enterprise, Pro, Pro with Media Center, Core, Core Single Language, Core China, Embedded Industry Enterprise/Pro</li><br />
-      <li>Windows 10 on <strong>ARM64</strong> is supported. Windows 8/8.1/10 <strong>N editions</strong> variants are also supported (e.g. Pro N)</li><br />
+      <li>Windows 10/11 on <strong>ARM64</strong> is supported. Windows 8/8.1/10/11 <strong>N editions</strong> variants are also supported (e.g. Pro N)</li><br />
       <li>Windows 7:<br />
-      Enterprise /N/E, Professional /N/E, Embedded Standard/POSReady/ThinPC</li><br />
+      Enterprise /N/E, Professional /N/E, Embedded POSReady/ThinPC</li><br />
       <li>Windows Server 2022/2019/2016:<br />
-      LTSC editions (Standard, Datacenter, Essentials, Cloud Storage, Azure Core, Azure Datacenter, Server ARM64), SAC editions (Standard ACor, Datacenter ACor)</li><br />
+      LTSC editions (Standard, Datacenter, Essentials, Cloud Storage, Azure Core, Server ARM64), SAC editions (Standard ACor, Datacenter ACor, Azure Datacenter)</li><br />
       <li>Windows Server 2012 R2:<br />
       Standard, Datacenter, Essentials, Cloud Storage</li><br />
       <li>Windows Server 2012:<br />
@@ -4253,7 +4930,7 @@ Add-Type -Language CSharp -TypeDefinition @"
     <p>______________________________</p>
     <p>These editions are only KMS-activatable for <em>45</em> days at max:</p>
     <ul>
-      <li>Windows 10 Home edition variants</li>
+      <li>Windows 10/11 Home edition variants</li>
       <li>Windows 8.1 Core edition variants, Pro with Media Center, Pro Student</li>
     </ul>
     <p>These editions are only KMS-activatable for <em>30</em> days at max:</p>
@@ -4268,8 +4945,8 @@ Add-Type -Language CSharp -TypeDefinition @"
     <p>______________________________</p>
             <h3>Unsupported Products</h3>
     <ul>
-      <li>Office Retail</li>
-      <li>Office UWP (Windows 10 Apps)</li>
+      <li>Office MSI Retail 2010/2013, Office 2010 C2R Retail</li>
+      <li>Office UWP (Windows 10/11 Apps)</li>
       <li>Windows editions which do not support KMS activation by design:<br />
       Windows Evaluation Editions<br />
       Windows 7 (Starter, HomeBasic, HomePremium, Ultimate)<br />
@@ -4277,22 +4954,16 @@ Add-Type -Language CSharp -TypeDefinition @"
       Windows Server (Server Foundation, Storage Server, Home Server 2011... etc)</li>
     </ul>
     <p>______________________________</p>
-            <h3>'Get genuine Office' notification banner</h3>
+            <h3>Office C2R 'Your license isn't genuine' notification banner</h3>
     <ul>
       <li>Office Click-to-Run builds (since February 2021) that are activated with KMS checks the existence of the KMS server name in the registry.</li>
       <li>If KMS server is not present, a banner is shown in Office programs notifying that "Office isn't licensed properly", see <a href="https://i.imgur.com/gLFxssD.png" target="_blank">here</a>.</li>
-      <li>Starting version 41f, for manual activation or complete uninstall option, <code>KeyManagementServiceName</code> value containing a non-existent IP address <strong>0.0.0.0</strong> will be kept in the below registry keys:
+      <li>Therefore in manual mode, <code>KeyManagementServiceName</code> value containing a non-existent IP address <strong>0.0.0.0</strong> will be kept in the below registry keys:
       <div><code>HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\SoftwareProtectionPlatform</code><br />
-      <code>HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\OfficeSoftwareProtectionPlatform</code></div></li>
-      <li>Be assured that it's perfectly fine to keep these registry keys, and it will not affect Windows or Office activation.</li>
-      <li>If you want to delete these registry values, start command prompt as administrator, and run these commands:</li>
+      <code>HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Microsoft\Windows NT\CurrentVersion\SoftwareProtectionPlatform</code></div></li>
+      <li>This is perfectly fine to keep, and it does not affect Windows or Office activation.</li>
+      <li>Fore more explanation, visit <a href="https://infohost.github.io/office-license-is-not-genuine" target="_blank">https://infohost.github.io/office-license-is-not-genuine</a></li>
     </ul>
-    <pre>
-<code>
-reg delete "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\SoftwareProtectionPlatform" /f /v KeyManagementServiceName
-reg delete "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\OfficeSoftwareProtectionPlatform" /f /v KeyManagementServiceName
-</code>
-    </pre>
             <hr />
             <br />
 
@@ -4303,14 +4974,15 @@ reg delete "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\OfficeSoftwareProtectionPlatfo
     <p>Notes:</p>
     <ul>
       <li>Supported Click-to-Run products: Office 365 (Microsoft 365 Apps), Office 2021 / 2019 / 2016, Office 2013</li>
-      <li>Activated Office Retail products will be skipped from conversion</li>
+      <li>Activated Office Retail or Subscription products will be skipped from conversion</li>
       <li>Office 365 itself does not have volume licenses, therefore it will be converted to Office Mondo licenses</li>
-      <li>Office Professional suite will be converted with Office ProPlus licenses</li>
+      <li>Windows 10/11: Office 2016 products will be converted with corresponding Office 2019 licenses (if RTM detected)</li>
+      <li>Windows 8.1: Office 2016/2019 products will be converted with corresponding Office 2021 licenses (if RTM detected)</li>
+      <li>Office Professional suite will be converted with Office Professional Plus licenses</li>
       <li>Office HomeBusiness/HomeStudent suites will be converted with Office Standard licenses</li>
-      <li>Office 2016 products will be converted with corresponding Office 2019 licenses</li>
-      <li>If Office 2019 RTM licenses are not detected, Office 2016 licenses will be used instead</li>
+      <li>Office 2013 products follow the same logic, but handled separately</li>
     </ul>
-    <p>Alternatively, if the automatic conversion did not work, or if you prefer to use the separate converter script:<br />
+    <p>Alternatively, if the automatic conversion did not work, or if you prefer to use the standalone converter script:<br />
     <a href="https://forums.mydigitallife.net/posts/1150042/" target="_blank">Office-C2R-Retail2Volume</a></p>
     <p>You can also use other tools that can convert licensing:</p>
     <ul>
@@ -4331,7 +5003,7 @@ reg delete "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\OfficeSoftwareProtectionPlatfo
       <li>Temporary suspend Antivirus realtime protection, or exclude the downloaded file and the extracted folder from scanning to avoid quarantine.</li>
     </ul>
     <ul>
-      <li>If you are using <strong>Windows Defender</strong> on Windows 10 or 8.1, the script automatically adds an exclusion for <code>C:\Windows\System32\SppExtComObjHook.dll</code><br />
+      <li>If you are using <strong>Windows Defender</strong> on Windows 11, 10 or 8.1, the script automatically adds an exclusion for <code>C:\Windows\System32\SppExtComObjHook.dll</code><br />
       therefore, <u>it's best not to disable Windows Defender</u>, and instead exclude the downloaded file and the extracted folder before running the script(s).</li>
     </ul>
     <ul>
@@ -4442,14 +5114,14 @@ reg delete "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\OfficeSoftwareProtectionPlatfo
     </ul>
     <p>______________________________</p>
 
-            <h3 id="ConfW10">Skip Windows 10 KMS 2038</h3>
-    <p>The script is set by default to check and skip Windows 10 activation if KMS 2038 is detected.</p>
+            <h3 id="ConfW10">Skip Windows 10/11 KMS 2038</h3>
+    <p>The script is set by default to check and skip Windows activation if KMS 2038 is detected.</p>
     <p>However, if you want to revert to normal KMS activation:</p>
     <ul>
-      <li>from the menu, press letter <b>X</b> to change the state to <strong>Skip Windows 10 KMS38</strong> <b>[No]</b></li>
+      <li>from the menu, press letter <b>X</b> to change the state to <strong>Skip Windows KMS38</strong> <b>[No]</b></li>
     </ul>
     <p>Notice:<br />
-    On Windows 10, if <code>SkipKMS38</code> is ON (default), Windows will always get checked and processed, even if <code>Process Windows</code> is No</p>
+    On Windows 10/11, if <code>SkipKMS38</code> is ON (default), Windows will always get checked and processed, even if <code>Process Windows</code> is No</p>
             <hr />
             <br />
 
@@ -4460,16 +5132,17 @@ reg delete "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\OfficeSoftwareProtectionPlatfo
     <p><strong>Check Activation Status [vbs]</strong>:</p>
     <ul>
       <li>query and execute official licensing VBScripts: slmgr.vbs for Windows, ospp.vbs for Office</li>
-      <li>it shows the activation expiration date for Windows</li>
+      <li>shows the activation expiration date for Windows</li>
       <li>Office 2010 ospp.vbs shows a very little info</li>
     </ul>
-    <p><strong>Check Activation Status [wmic]</strong>:</p>
+    <p><strong>Check Activation Status [wmi]</strong>:</p>
     <ul>
-      <li>query and execute native WMI functions, no vbscripting involved</li>
-      <li>it shows extra more info (SKU ID, key channel)</li>
-      <li>it shows the activation expiration date for all products</li>
-      <li>it shows more detailed info for Office 2010</li>
-      <li>it can show the status of Office UWP apps</li>
+      <li>query and execute WMI functions using wmic.exe, or vbscripting</li>
+      <li>shows extra more info (SKU ID, key channel)</li>
+      <li>shows the activation expiration date for all products</li>
+      <li>shows more detailed info for Office 2010</li>
+      <li>can show the status of Office UWP apps</li>
+      <li>implement vNextDiag.ps1 functions to detect new Office 365 vNext licenses and subscriptions</li>
     </ul>
     <p>______________________________</p>
 
@@ -4570,7 +5243,7 @@ reg delete "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\OfficeSoftwareProtectionPlatfo
       <li>Turn OFF Office C2R-R2V conversion:<br /><code>/c</code></li>
     </ul>
     <ul>
-      <li>Do not skip Windows 10 KMS38:<br /><code>/x</code></li>
+      <li>Do not skip Windows 10/11 KMS38:<br /><code>/x</code></li>
     </ul>
     <p>
       <strong>Rules:</strong>
@@ -4656,13 +5329,13 @@ reg add HKLM\SOFTWARE\Classes\cmdfile\shell\runas\command /f /v "" /t REG_EXPAND
       <li>Reboot the system and try again.</li>
       <li>Verify that Antivirus software is not blocking <code>C:\Windows\SppExtComObjHook.dll</code></li>
       <li>Check System integrity, open command prompt as administrator, and execute these command respectively:<br />
-      for Windows 8.1 and 10 only: <code>Dism /online /Cleanup-Image /RestoreHealth</code><br />
+      for Windows 11, 10 or 8.1 only: <code>Dism /online /Cleanup-Image /RestoreHealth</code><br />
       then, for any OS: <code>sfc /scannow</code></li>
     </ul>
     <p>if Auto-Renewal is installed already, but the activation started to fail, run the installation again (option <b>2</b>), or Uninstall Completely then run the installation again.</p>
     <p>For Windows 7, if you have the errors described in <a href="https://support.microsoft.com/en-us/help/4487266" target="_blank">KB4487266</a>, execute the suggested fix.</p>
     <p>If you got Error <strong>0xC004F035</strong> on Windows 7, it means your Machine is not qualified for KMS activation. For more info, see <a href="https://support.microsoft.com/en-us/help/942962" target="_blank">here</a> and <a href="https://technet.microsoft.com/en-us/library/ff793426(v=ws.10).aspx#activation-of-windows-oem-computers" target="_blank">here</a>.</p>
-    <p>If you got Error <strong>0x80040154</strong>, it is mostly related to misconfigured Windows 10 KMS38 activation, rearm the system and start over, or revert to Normal KMS.</p>
+    <p>If you got Error <strong>0x80040154</strong>, it is mostly related to misconfigured Windows 10/11 KMS38 activation, rearm the system and start over, or revert to Normal KMS.</p>
     <p>If you got Error <strong>0xC004E015</strong>, it is mostly related to misconfigured Office retail to volume conversion, try to reinstall system licenses:<br /><code>cscript //Nologo %SystemRoot%\System32\slmgr.vbs /rilc</code></p>
     <p>If you got one of these Errors on Windows Server, verify that the system is properly converted from Evaluation to Retail/Volume:<br /><strong>0xC004E016</strong> - <strong>0xC004F014</strong> - <strong>0xC004F034</strong></p>
     <p>If the activation still failed after the above tips, you may enable the debug mode to help determine the reason:</p>
@@ -4824,10 +5497,21 @@ if %Unattend% EQU 1 goto :eof
 pause >nul
 goto :eof
 
+:E_VBS
+echo %_err%
+echo Windows Script Host is disabled.
+echo It is required for this script to work.
+echo.
+echo Press any key to exit.
+if %_Debug% EQU 1 goto :eof
+if %Unattend% EQU 1 goto :eof
+pause >nul
+goto :eof
+
 :UnsupportedVersion
 echo %_err%
 echo Unsupported OS version Detected.
-echo Project is supported only for Windows 7/8/8.1/10 and their Server equivalent.
+echo Project is supported only for Windows 7/8/8.1/10/11 and their Server equivalent.
 :TheEnd
 if exist "%PUBLIC%\ReadMeAIO.html" del /f /q "%PUBLIC%\ReadMeAIO.html"
 if exist "%_temp%\'" del /f /q "%_temp%\'"
@@ -4840,23 +5524,100 @@ goto :eof
 
 ----- Begin wsf script --->
 <package>
+   <job id="WmiQuery">
+      <script language="VBScript">
+         If WScript.Arguments.Count = 3 Then
+            wExc = "Select " & WScript.Arguments.Item(2) & " from " & WScript.Arguments.Item(0) & " where " & WScript.Arguments.Item(1)
+            wGet = WScript.Arguments.Item(2)
+         Else
+            wExc = "Select " & WScript.Arguments.Item(1) & " from " & WScript.Arguments.Item(0)
+            wGet = WScript.Arguments.Item(1)
+         End If
+         Set objCol = GetObject("winmgmts:\\.\root\CIMV2").ExecQuery(wExc,,48)
+         For Each objItm in objCol
+            For each Prop in objItm.Properties_
+               If LCase(Prop.Name) = LCase(wGet) Then
+                  WScript.Echo Prop.Name & "=" & Prop.Value
+                  Exit For
+               End If
+            Next
+         Next
+      </script>
+   </job>
+   <job id="WmiMethod">
+      <script language="VBScript">
+         On Error Resume Next
+         wPath = WScript.Arguments.Item(0)
+         wMethod = WScript.Arguments.Item(1)
+         Set objCol = GetObject("winmgmts:\\.\root\CIMV2:" & wPath)
+         objCol.ExecMethod_(wMethod)
+         WScript.Quit Err.Number
+      </script>
+   </job>
+   <job id="WmiPKey">
+      <script language="VBScript">
+         On Error Resume Next
+         wExc = "SELECT Version FROM " & WScript.Arguments.Item(0)
+         wKey = WScript.Arguments.Item(1)
+         Set objWMIService = GetObject("winmgmts:\\.\root\CIMV2").ExecQuery(wExc,,48)
+         For each colService in objWMIService
+            Exit For
+         Next
+         set objService = colService
+         objService.InstallProductKey(wKey)
+         WScript.Quit Err.Number
+      </script>
+   </job>
+   <job id="XPDT">
+      <script language="VBScript">
+         WScript.Echo DateAdd("n", WScript.Arguments.Item(0), Now)
+      </script>
+   </job>
+   <job id="MPS">
+      <script language="VBScript">
+         On Error Resume Next
+         wMethod = WScript.Arguments.Item(0)
+         wValue = WScript.Arguments.Item(1)
+         Set objID = GetObject("winmgmts:\\.\root\Microsoft\Windows\Defender").ExecQuery("Select ComputerID from MSFT_MpPreference")
+         For Each objItm in objID
+            cid = objItm.ComputerID
+         Next
+         Set objCol = GetObject("winmgmts:\\.\root\Microsoft\Windows\Defender:MSFT_MpPreference.ComputerID='" & cid & "'")
+         Set objInp = objCol.Methods_(wMethod).inParameters.SpawnInstance_()
+         objInp.Properties_.Item("ExclusionPath") = Split(wValue, ";")
+         objInp.Properties_.Item("Force") = True
+         Set objOut = objCol.ExecMethod_(wMethod, objInp)
+         WScript.Quit Err.Number
+      </script>
+   </job>
+   <job id="WmiMulti">
+      <script language="VBScript">
+         If WScript.Arguments.Count = 3 Then
+            wExc = "Select " & WScript.Arguments.Item(2) & " from " & WScript.Arguments.Item(0) & " where " & WScript.Arguments.Item(1)
+         Else
+            wExc = "Select " & WScript.Arguments.Item(1) & " from " & WScript.Arguments.Item(0)
+         End If
+         Set objCol = GetObject("winmgmts:\\.\root\CIMV2").ExecQuery(wExc,,48)
+         For Each objItm in objCol
+            For each Prop in objItm.Properties_
+               WScript.Echo Prop.Name & "=" & Prop.Value
+            Next
+         Next
+      </script>
+   </job>
    <job id="ELAV">
-       <script language="VBScript">
-           Set strArg=WScript.Arguments.Named
-           If Not strArg.Exists("File") Then
-               Wscript.Echo "Switch /File:<File> is missing."
-               WScript.Quit 1
-           End If
-           Set strRdlproc = CreateObject("WScript.Shell").Exec("rundll32 kernel32,Sleep")
-           With GetObject("winmgmts:\\.\root\CIMV2:Win32_Process.Handle='" & strRdlproc.ProcessId & "'")
-               With GetObject("winmgmts:\\.\root\CIMV2:Win32_Process.Handle='" & .ParentProcessId & "'")
-                   If InStr (.CommandLine, WScript.ScriptName) <> 0 Then
-                       strLine = Mid(.CommandLine, InStr(.CommandLine , "/File:") + Len(strArg("File")) + 8)
-                   End If
-               End With
-               .Terminate
-           End With
-          CreateObject("Shell.Application").ShellExecute "cmd.exe", "/c " & chr(34) & chr(34) & strArg("File") & chr(34) & strLine & chr(34), "", "runas", 1
-       </script>
+      <script language="VBScript">
+         Set strArg=WScript.Arguments.Named
+         Set strRdlproc = CreateObject("WScript.Shell").Exec("rundll32 kernel32,Sleep")
+         With GetObject("winmgmts:\\.\root\CIMV2:Win32_Process.Handle='" & strRdlproc.ProcessId & "'")
+            With GetObject("winmgmts:\\.\root\CIMV2:Win32_Process.Handle='" & .ParentProcessId & "'")
+               If InStr (.CommandLine, WScript.ScriptName) <> 0 Then
+                  strLine = Mid(.CommandLine, InStr(.CommandLine , "/File:") + Len(strArg("File")) + 8)
+               End If
+            End With
+            .Terminate
+         End With
+         CreateObject("Shell.Application").ShellExecute "cmd.exe", "/c " & chr(34) & chr(34) & strArg("File") & chr(34) & strLine & chr(34), "", "runas", 1
+      </script>
    </job>
 </package>
