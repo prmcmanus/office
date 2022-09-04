@@ -27,7 +27,7 @@ set KMS_IP=172.16.0.2
 set uManual=0
 
 :: change to 1 to run AutoRenewal activation mode unattended
-set uAutoRenewal=1
+set uAutoRenewal=0
 
 :: change to 1 to suppress any output
 set Silent=0
